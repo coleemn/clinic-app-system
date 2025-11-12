@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard | MediConnect</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <header>
+    <div class="container nav">
+      <h1 class="logo">Admin Dashboard</h1>
+      <nav>
+        <ul class="nav-links">
+          <li><button class="theme-toggle" onclick="toggleTheme()" title="Toggle Theme">🌙</button></li>
+          <li><a href="#" onclick="logout(); return false;" class="logout-btn">Logout</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <section class="dashboard container fade-in">
+    <h2>System Overview</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 2rem; margin-top: 2rem;">
+      <div class="card">
+        <h3>Patient Statistics</h3>
+        <canvas id="chartPatients" width="400" height="200"></canvas>
+      </div>
+      <div class="card">
+        <h3>Doctor Distribution</h3>
+        <canvas id="chartDoctors" width="400" height="200"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <script src="main.js"></script>
+  <script>
+    const ctx1 = document.getElementById('chartPatients');
+    const ctx2 = document.getElementById('chartDoctors');
+
+    new Chart(ctx1, {
+      type: 'bar',
+      data: {
+        labels: ['Jan', 'Feb', 'Mar', 'Apr'],
+        datasets: [{
+          label: 'New Patients',
+          data: [10, 15, 8, 20]
+        }]
+      }
+    });
+
+    new Chart(ctx2, {
+      type: 'pie',
+      data: {
+        labels: ['Physicians', 'Specialists', 'General'],
+        datasets: [{
+          data: [4, 6, 8]
+        }]
+      }
+    });
+  </script>
+</body>
+</html>

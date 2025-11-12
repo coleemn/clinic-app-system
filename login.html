@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login | MediConnect</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="auth-container">
+    <div class="auth-wrapper">
+      <div class="auth-image">
+        <img src="https://images.unsplash.com/photo-1582750433449-648ed127bb54?auto=format&fit=crop&w=800&q=80" alt="Medical Professional" loading="lazy">
+        <div class="auth-image-overlay">
+          <h3>Welcome Back</h3>
+          <p>Access your healthcare dashboard and manage your appointments</p>
+        </div>
+      </div>
+      <div class="auth-box fade-in">
+        <h2>Welcome Back 👋</h2>
+        <p>Login to manage your clinic appointments</p>
+
+      <form id="loginForm" class="auth-form">
+        <div class="form-group">
+          <label for="email">Email Address</label>
+          <input type="email" id="email" name="email" placeholder="Enter your email" required>
+        </div>
+
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" placeholder="Enter your password" required>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Login</button>
+        
+        <div id="responseMessage"></div>
+      </form>
+
+      <p class="switch-link">
+        Don't have an account? <a href="register.html">Create one</a>
+      </p>
+      
+      <p class="switch-link">
+        <a href="index.html">← Back to Home</a>
+      </p>
+      </div>
+    </div>
+  </div>
+
+  <script src="main.js"></script>
+</body>
+</html>
+

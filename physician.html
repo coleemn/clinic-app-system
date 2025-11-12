@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Physician Help</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <div class="container nav">
+      <h1 class="logo">MediConnect</h1>
+      <nav>
+        <ul class="nav-links">
+          <li><a href="index.html">Home</a></li>
+          <li><a href="dashboard.html">Dashboard</a></li>
+          <li><a href="booking.html">Book Appointment</a></li>
+          <li><a href="physician.html" class="active">Physician Help</a></li>
+          <li><a href="specialists.html">Doctors</a></li>
+          <li><a href="#" onclick="logout(); return false;" class="logout-btn">Logout</a></li>
+          <li><button class="theme-toggle" onclick="toggleTheme()" title="Toggle Theme">🌙</button></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container physician-container fade-in">
+    <h2>👩‍⚕️ Physician Assistance</h2>
+    <p>If you're not sure which doctor to visit, describe your symptoms below and our physician will direct you to the right specialist.</p>
+
+    <form id="physicianForm" class="physician-form" action="/physician-help" method="POST">
+      <div class="form-group">
+        <label for="patientName">Full Name</label>
+        <input type="text" id="patientName" name="patientName" placeholder="Enter your full name" required />
+      </div>
+
+      <div class="form-group">
+        <label for="email">Email Address</label>
+        <input type="email" id="email" name="email" placeholder="Enter your email" required />
+      </div>
+
+      <div class="form-group">
+        <label for="symptoms">Describe Your Symptoms</label>
+        <textarea id="symptoms" name="symptoms" rows="4" placeholder="E.g., I have been feeling dizzy and experiencing chest pain..." required></textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="urgency">Urgency Level</label>
+        <select id="urgency" name="urgency" required>
+          <option value="">-- Select Level --</option>
+          <option value="low">Low (Mild symptoms)</option>
+          <option value="medium">Medium (Persistent issue)</option>
+          <option value="high">High (Severe or sudden issue)</option>
+        </select>
+      </div>
+
+      <button type="submit" class="btn">Send to Physician</button>
+    </form>
+
+    <div class="recommendation-section" id="recommendationSection" style="display:none;">
+      <h3>🩺 Physician Recommendation</h3>
+      <p id="recommendationText">Loading recommendation...</p>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container">
+      <p>© 2025 MediConnect. All Rights Reserved.</p>
+    </div>
+  </footer>
+
+  <script src="main.js"></script>
+</body>
+</html>

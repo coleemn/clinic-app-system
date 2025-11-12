@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Appointments | MediConnect</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header>
+    <div class="container nav">
+      <h1 class="logo">MediConnect</h1>
+      <nav>
+        <ul class="nav-links">
+          <li><a href="index.html">Home</a></li>
+          <li><a href="booking.html">Book Appointment</a></li>
+          <li><a href="dashboard.html">Dashboard</a></li>
+          <li><a href="login.html">Login</a></li>
+          <li><button class="theme-toggle" onclick="toggleTheme()" title="Toggle Theme">🌙</button></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero small">
+    <div class="container hero-content">
+      <h2>My Appointments</h2>
+      <p>View and manage your scheduled appointments</p>
+    </div>
+  </section>
+
+  <div class="container">
+    <div id="appointmentSummary" class="card" style="margin: 2rem 0;">
+      <p>Loading your appointments...</p>
+    </div>
+
+    <div class="actions">
+      <a href="booking.html" class="btn btn-primary">Book Another Appointment</a>
+      <a href="index.html" class="btn btn-secondary">Go to Home</a>
+    </div>
+  </div>
+
+  <footer>
+    <div class="container">
+      <p>© 2025 MediConnect. All Rights Reserved.</p>
+    </div>
+  </footer>
+
+  <script src="main.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", async () => {
+      const summaryContainer = document.getElementById("appointmentSummary");
+      const token = localStorage.getItem('token');
+      
+      if (token) {
+        // Try to load from API
+        try {
+          const res = await fetch(`${API_URL}/appointments/mine`, {
+            headers: { Authorization: 'Bearer ' + token }
+          });
+          const data = await res.json();
+          
+          if (data.list && data.list.length > 0) {
+            summaryContainer.innerHTML = '<h2>Your Appointments</h2>';
+            data.list.forEach(a => {
+              const card = document.createElement('div');
+              card.className = 'appointment-card';
+              card.innerHTML = `
+                <h3>${a.specialty || 'Pending Triage'}</h3>
+                <p><strong>Doctor:</strong> ${a.physicianId ? a.physicianId.name : 'Not Assigned'}</p>
+                <p><strong>Date:</strong> ${a.datetime ? new Date(a.datetime).toLocaleString() : 'To be scheduled'}</p>
+                <p><strong>Status:</strong> <span class="status-badge status-${a.status || 'pending'}">${a.status || 'Pending'}</span></p>
+              `;
+              summaryContainer.appendChild(card);
+            });
+          } else {
+            summaryContainer.innerHTML = `
+              <h2>No Appointments Found</h2>
+              <p>You don't have any appointments yet. <a href="booking.html">Book your first appointment</a>.</p>
+            `;
+          }
+        } catch (err) {
+          console.error('Error loading appointments:', err);
+          // Fallback to localStorage
+          const appointment = JSON.parse(localStorage.getItem("lastAppointment") || 'null');
+          if (appointment) {
+            summaryContainer.innerHTML = `
+              <h2>✅ Appointment Confirmed</h2>
+              <p><strong>Patient Name:</strong> ${appointment.patientName}</p>
+              <p><strong>Doctor:</strong> ${appointment.doctorName}</p>
+              <p><strong>Date & Time:</strong> ${new Date(appointment.appointmentDate).toLocaleString()}</p>
+            `;
+          } else {
+            summaryContainer.innerHTML = `
+              <h2>No Recent Appointment</h2>
+              <p>No recent appointment found. Please <a href="booking.html">book a new appointment</a>.</p>
+            `;
+          }
+        }
+      } else {
+        // No token, check localStorage
+        const appointment = JSON.parse(localStorage.getItem("lastAppointment") || 'null');
+        if (appointment) {
+          summaryContainer.innerHTML = `
+            <h2>✅ Appointment Confirmed</h2>
+            <p><strong>Patient Name:</strong> ${appointment.patientName}</p>
+            <p><strong>Doctor:</strong> ${appointment.doctorName}</p>
+            <p><strong>Date & Time:</strong> ${new Date(appointment.appointmentDate).toLocaleString()}</p>
+          `;
+        } else {
+          summaryContainer.innerHTML = `
+            <h2>No Recent Appointment</h2>
+            <p>No recent appointment found. Please <a href="booking.html">book a new appointment</a>.</p>
+          `;
+        }
+      }
+    });
+  </script>
+</body>
+</html>
+
+

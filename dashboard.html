@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Clinic Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header class="header">
+    <div class="container">
+      <h1>🏥 MediConnect</h1>
+      <nav>
+        <ul>
+          <li><a href="dashboard.html" class="active">Dashboard</a></li>
+          <li><a href="booking.html">Book Appointment</a></li>
+          <li><a href="physician.html">Physician Help</a></li>
+          <li><a href="specialists.html">Doctors</a></li>
+          <li><a href="#" onclick="logout(); return false;" class="logout-btn">Logout</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main class="dashboard-container fade-in">
+    <section class="welcome-section">
+      <h2>Welcome, <span id="userName">Patient</span> 👋</h2>
+      <p>Manage your health appointments easily and get the right medical help.</p>
+    </section>
+
+    <section class="cards-grid">
+      <div class="dashboard-card">
+        <div class="dashboard-card-icon">
+          <img src="https://images.unsplash.com/photo-1551601651-2a8555f1a136?auto=format&fit=crop&w=400&q=80" alt="Book Appointment" loading="lazy">
+        </div>
+        <h3>🗓️ Book Appointment</h3>
+        <p>Schedule a visit with your preferred doctor or specialist.</p>
+        <a href="booking.html" class="btn btn-primary">Book Now</a>
+      </div>
+
+      <div class="dashboard-card">
+        <div class="dashboard-card-icon">
+          <img src="https://images.unsplash.com/photo-1576091160399-112ba8d25d1f?auto=format&fit=crop&w=400&q=80" alt="Physician Help" loading="lazy">
+        </div>
+        <h3>👩‍⚕️ Physician Help</h3>
+        <p>Not sure which doctor to visit? Consult a physician for guidance.</p>
+        <a href="physician.html" class="btn btn-primary">Get Help</a>
+      </div>
+
+      <div class="dashboard-card">
+        <div class="dashboard-card-icon">
+          <img src="https://images.unsplash.com/photo-1582750433449-648ed127bb54?auto=format&fit=crop&w=400&q=80" alt="Doctors" loading="lazy">
+        </div>
+        <h3>👨‍⚕️ Doctors</h3>
+        <p>View available doctors and their areas of specialization.</p>
+        <a href="specialists.html" class="btn btn-primary">View List</a>
+      </div>
+
+      <div class="dashboard-card">
+        <div class="dashboard-card-icon">
+          <img src="https://images.unsplash.com/photo-1573164713714-d95e436ab8d6?auto=format&fit=crop&w=400&q=80" alt="My Appointments" loading="lazy">
+        </div>
+        <h3>📅 My Appointments</h3>
+        <p>Track and manage your scheduled appointments.</p>
+        <div id="appointments" style="margin-top: 1rem; text-align: left;"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container">
+      <p>© 2025 MediConnect. All Rights Reserved.</p>
+    </div>
+  </footer>
+
+  <script src="main.js"></script>
+  <script>
+    // Load dashboard when page loads
+    if (typeof loadDashboard === 'function') {
+      loadDashboard();
+    } else {
+      window.addEventListener('DOMContentLoaded', () => {
+        if (typeof loadDashboard === 'function') loadDashboard();
+      });
+    }
+  </script>
+</body>
+</html>
+
+
