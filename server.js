@@ -12,11 +12,16 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
+
+// CORS and JSON parsing - must be first
 app.use(cors());
 app.use(express.json());
 
-// Serve static files (HTML, CSS, JS)
-app.use(express.static(__dirname));
+// Debug middleware to log all requests
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  next();
+});
 
 /* ================= SUPABASE CONFIG ================= */
 const SUPABASE_URL = "https://gjomgbwbqfbngozolede.supabase.co";
@@ -67,30 +72,56 @@ function auth(req, res, next) {
   }
 }
 
-/* ================= AUTH ROUTES ================= */
+/* ================= API ROUTES - DEFINED FIRST ================= */
 
-// Register
+// Handle CORS preflight for all API routes
+app.use((req, res, next) => {
+  if (req.method === "OPTIONS" && req.path.startsWith("/api/")) {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    return res.sendStatus(200);
+  }
+  next();
+});
+
+// Test route
+app.get("/api/test", (req, res) => {
+  console.log("✅ Test route hit!");
+  res.json({ message: "API routes are working!" });
+});
+
+// Register route - MUST be defined before static files
+console.log("🔧 Registering route: POST /api/auth/register");
 app.post("/api/auth/register", async (req, res) => {
+  console.log("✅✅✅ Register route hit! Body:", req.body);
   try {
     const { name, email, password, role } = req.body;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: "Name, email, and password are required" });
+    }
 
     // Check if user exists
     const { data: existing } = await supabase.from("users").select("*").eq("email", email).single();
     if (existing) return res.status(400).json({ error: "Email already exists" });
 
     const hashed = await bcrypt.hash(password, 10);
-    const { data, error } = await supabase.from("users").insert([{ name, email, password: hashed, role }]).select().single();
+    const { data, error } = await supabase.from("users").insert([{ name, email, password: hashed, role: role || 'patient' }]).select().single();
     if (error) throw error;
 
     const token = generateToken(data);
+    console.log("✅ Registration successful for:", email);
     res.json({ user: data, token });
   } catch (err) {
+    console.error("❌ Register error:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Login
+// Login route
 app.post("/api/auth/login", async (req, res) => {
+  console.log("✅ Login route hit!");
   try {
     const { email, password } = req.body;
     const { data: user, error } = await supabase.from("users").select("*").eq("email", email).single();
@@ -102,11 +133,10 @@ app.post("/api/auth/login", async (req, res) => {
     const token = generateToken(user);
     res.json({ user, token });
   } catch (err) {
+    console.error("❌ Login error:", err);
     res.status(500).json({ error: err.message });
   }
 });
-
-/* ================= APPOINTMENTS ================= */
 
 // Get user's appointments
 app.get("/api/appointments/mine", auth, async (req, res) => {
@@ -193,11 +223,34 @@ app.get("/", (req, res) => {
   res.sendFile(join(__dirname, "index.html"));
 });
 
+// Serve static files (HTML, CSS, JS) - AFTER all API routes
+// Only serve static files for non-API routes
+const staticMiddleware = express.static(__dirname);
+app.use((req, res, next) => {
+  if (req.path.startsWith("/api/")) {
+    return next(); // Skip static files for API routes
+  }
+  staticMiddleware(req, res, next);
+});
+
+// 404 handler - must be last
+app.use((req, res, next) => {
+  if (req.path.startsWith("/api/")) {
+    console.log(`❌ API route not found: ${req.method} ${req.originalUrl}`);
+    return res.status(404).json({ error: `API route not found: ${req.method} ${req.originalUrl}` });
+  }
+  // For non-API routes, serve index.html (SPA fallback)
+  res.status(404).sendFile(join(__dirname, "index.html"));
+});
+
 /* ================= SERVER START ================= */
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📁 Serving static files from: ${__dirname}`);
+  console.log(`✅ API routes registered:`);
+  console.log(`   POST /api/auth/register`);
+  console.log(`   POST /api/auth/login`);
+  console.log(`   GET  /api/test`);
 });
-
 

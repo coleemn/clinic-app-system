@@ -92,10 +92,24 @@ document.getElementById('registerForm')?.addEventListener('submit', async e => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     });
-    const data = await res.json();
+    
+    let data;
+    try {
+      data = await res.json();
+    } catch (jsonError) {
+      // If response is not JSON, it's likely a 404 or server error
+      if (res.status === 404) {
+        showMessage(messageEl, 'API route not found. Please make sure the server is running on http://localhost:3000', 'error');
+      } else {
+        showMessage(messageEl, `Server error (${res.status}). Please check if the server is running.`, 'error');
+      }
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = 'Sign Up';
+      return;
+    }
     
     if (!res.ok) {
-      showMessage(messageEl, data.error || 'Registration failed', 'error');
+      showMessage(messageEl, data.error || data.message || 'Registration failed', 'error');
       submitBtn.disabled = false;
       submitBtn.innerHTML = 'Sign Up';
       return;
@@ -112,7 +126,7 @@ document.getElementById('registerForm')?.addEventListener('submit', async e => {
       else location.href = 'dashboard.html';
     }, 1000);
   } catch (error) {
-    showMessage(messageEl, 'Network error. Please try again.', 'error');
+    showMessage(messageEl, `Network error: ${error.message}. Please make sure the server is running on http://localhost:3000`, 'error');
     submitBtn.disabled = false;
     submitBtn.innerHTML = 'Sign Up';
   }
