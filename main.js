@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:3000/api';
+const API_URL = 'http://localhost:8080/api';
 
 /* ========== LOGIN ========== */
 document.getElementById('loginForm')?.addEventListener('submit', async e => {
@@ -99,7 +99,7 @@ document.getElementById('registerForm')?.addEventListener('submit', async e => {
     } catch (jsonError) {
       // If response is not JSON, it's likely a 404 or server error
       if (res.status === 404) {
-        showMessage(messageEl, 'API route not found. Please make sure the server is running on http://localhost:3000', 'error');
+        showMessage(messageEl, 'Server route not found. Please make sure the server is running on http://localhost:8080', 'error');
       } else {
         showMessage(messageEl, `Server error (${res.status}). Please check if the server is running.`, 'error');
       }
@@ -109,7 +109,12 @@ document.getElementById('registerForm')?.addEventListener('submit', async e => {
     }
     
     if (!res.ok) {
-      showMessage(messageEl, data.error || data.message || 'Registration failed', 'error');
+      const errorMsg = data.error || data.message || 'Registration failed';
+      // Clean up error message to remove long URLs if present
+      const cleanError = errorMsg.includes('API route not found') 
+        ? 'Server route not found. Please make sure the server is running.' 
+        : errorMsg;
+      showMessage(messageEl, cleanError, 'error');
       submitBtn.disabled = false;
       submitBtn.innerHTML = 'Sign Up';
       return;
@@ -126,7 +131,11 @@ document.getElementById('registerForm')?.addEventListener('submit', async e => {
       else location.href = 'dashboard.html';
     }, 1000);
   } catch (error) {
-    showMessage(messageEl, `Network error: ${error.message}. Please make sure the server is running on http://localhost:3000`, 'error');
+    // Network error - server is likely not running
+    const errorMsg = error.message.includes('Failed to fetch') || error.message.includes('NetworkError')
+      ? 'Cannot connect to server. Please make sure the server is running on http://localhost:8080'
+      : `Network error: ${error.message}. Please make sure the server is running on http://localhost:8080`;
+    showMessage(messageEl, errorMsg, 'error');
     submitBtn.disabled = false;
     submitBtn.innerHTML = 'Sign Up';
   }
@@ -397,18 +406,42 @@ async function loadAvailability() {
       return;
     }
 
-    // Fetch available slots from backend
-    const res = await fetch(`${API_URL}/availability/${specialty}`);
-    const data = await res.json();
+    try {
+      // Fetch available slots from backend
+      const res = await fetch(`${API_URL}/availability/${specialty}`);
+      
+      let data;
+      try {
+        data = await res.json();
+      } catch (jsonError) {
+        console.error('Error parsing availability response:', jsonError);
+        if (res.status === 404) {
+          console.error('Availability route not found. Please make sure the server is running.');
+        }
+        return;
+      }
 
-    section.classList.remove('hidden');
-    slotSelect.innerHTML = "";
-    data.slots.forEach(slot => {
-      const opt = document.createElement('option');
-      opt.value = slot.datetime;
-      opt.textContent = new Date(slot.datetime).toLocaleString();
-      slotSelect.appendChild(opt);
-    });
+      if (!res.ok) {
+        console.error('Error fetching availability:', data.error || 'Unknown error');
+        return;
+      }
+
+      section.classList.remove('hidden');
+      slotSelect.innerHTML = "";
+      
+      if (data.slots && data.slots.length > 0) {
+        data.slots.forEach(slot => {
+          const opt = document.createElement('option');
+          opt.value = slot.datetime;
+          opt.textContent = new Date(slot.datetime).toLocaleString();
+          slotSelect.appendChild(opt);
+        });
+      } else {
+        slotSelect.innerHTML = '<option value="">No available slots</option>';
+      }
+    } catch (error) {
+      console.error('Network error fetching availability:', error);
+    }
   });
 }
 // ==========================
@@ -533,7 +566,20 @@ document.addEventListener("DOMContentLoaded", () => {
         }),
       });
 
-      const data = await res.json();
+      let data;
+      try {
+        data = await res.json();
+      } catch (jsonError) {
+        // If response is not JSON, it's likely a 404 or server error
+        if (res.status === 404) {
+          showMessage(responseMessage, "❌ Server route not found. Please make sure the server is running on http://localhost:8080", "error");
+        } else {
+          showMessage(responseMessage, `❌ Server error (${res.status}). Please check if the server is running.`, "error");
+        }
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = 'Book Appointment';
+        return;
+      }
 
       if (res.ok) {
         showMessage(responseMessage, "✅ " + (data.message || "Appointment booked successfully!"), "success");
@@ -553,13 +599,17 @@ document.addEventListener("DOMContentLoaded", () => {
           location.href = 'appointment.html';
         }, 2000);
       } else {
-        showMessage(responseMessage, "❌ " + (data.error || data.message || "Something went wrong"), "error");
+        const errorMsg = data.error || data.message || "Something went wrong";
+        showMessage(responseMessage, "❌ " + errorMsg, "error");
         submitBtn.disabled = false;
         submitBtn.innerHTML = 'Book Appointment';
       }
     } catch (err) {
       console.error("Error:", err);
-      showMessage(responseMessage, "❌ Failed to connect to the server. Please check your connection.", "error");
+      const errorMsg = err.message && (err.message.includes('Failed to fetch') || err.message.includes('NetworkError'))
+        ? "Cannot connect to server. Please make sure the server is running on http://localhost:8080"
+        : `Network error: ${err.message}. Please check your connection.`;
+      showMessage(responseMessage, "❌ " + errorMsg, "error");
       submitBtn.disabled = false;
       submitBtn.innerHTML = 'Book Appointment';
     }

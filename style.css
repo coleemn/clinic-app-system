@@ -35,12 +35,22 @@ body {
 }
 
 body.dark {
-  --text-color: #e2e8f0;
-  --bg-color: #1a202c;
-  --card-bg: #2d3748;
-  --border-color: #4a5568;
-  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
-  --shadow-hover: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+  --text-color: #e4e7eb;
+  --bg-color: #0f1419;
+  --card-bg: #1a2332;
+  --border-color: #2d3748;
+  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.4);
+  --shadow-hover: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 10px 10px -5px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+  --primary-color: #4da6ff;
+  --secondary-color: #66d9ef;
+  --accent-color: #ff6b9d;
+  --success-color: #4ade80;
+  --warning-color: #fbbf24;
+  --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --gradient-secondary: linear-gradient(135deg, #4da6ff 0%, #0077b6 100%);
+  --gradient-accent: linear-gradient(135deg, #ff6b9d 0%, #ff8787 100%);
+  --gradient-hero: linear-gradient(135deg, rgba(77, 166, 255, 0.9) 0%, rgba(0, 119, 182, 0.9) 100%);
 }
 
 /* ================= CONTAINER ================= */
@@ -61,6 +71,12 @@ header {
   box-shadow: var(--shadow-lg);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+body.dark header {
+  background: linear-gradient(135deg, rgba(26, 35, 50, 0.95) 0%, rgba(45, 55, 72, 0.95) 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
 }
 
 .nav, .navbar {
@@ -177,6 +193,12 @@ header {
   overflow: hidden;
 }
 
+body.dark .hero {
+  background: linear-gradient(135deg, rgba(15, 20, 25, 0.9) 0%, rgba(26, 35, 50, 0.9) 100%),
+              url('https://images.unsplash.com/photo-1588776814546-f7e99293078b?auto=format&fit=crop&w=1950&q=80') no-repeat center center/cover;
+  background-blend-mode: overlay;
+}
+
 .hero::before {
   content: '';
   position: absolute;
@@ -291,6 +313,10 @@ header {
   padding: 5rem 0;
   background: linear-gradient(180deg, var(--bg-color) 0%, #ffffff 100%);
   position: relative;
+}
+
+body.dark .about {
+  background: linear-gradient(180deg, var(--bg-color) 0%, var(--card-bg) 100%);
 }
 
 .about::before {
@@ -516,6 +542,16 @@ header {
   position: relative;
 }
 
+body.dark .contact {
+  background: linear-gradient(135deg, rgba(26, 35, 50, 0.8) 0%, rgba(45, 55, 72, 0.8) 100%);
+}
+
+body.dark .contact ul li {
+  background: rgba(26, 35, 50, 0.6);
+  border: 1px solid var(--border-color);
+  color: var(--text-color);
+}
+
 .contact h2 {
   font-size: clamp(2rem, 4vw, 3rem);
   margin-bottom: 2rem;
@@ -560,6 +596,12 @@ footer, .footer {
   text-align: center;
   padding: 2rem 0;
   margin-top: 3rem;
+}
+
+body.dark footer,
+body.dark .footer {
+  background: linear-gradient(135deg, rgba(26, 35, 50, 0.95) 0%, rgba(15, 20, 25, 0.95) 100%);
+  border-top: 1px solid var(--border-color);
 }
 
 footer p, .footer p {
@@ -1310,8 +1352,136 @@ img[loading="lazy"] {
 }
 
 body.dark img[loading="lazy"] {
-  background: linear-gradient(90deg, #2d2d2d 25%, #404040 50%, #2d2d2d 75%);
+  background: linear-gradient(90deg, #1a2332 25%, #2d3748 50%, #1a2332 75%);
   background-size: 200% 100%;
+}
+
+/* ================= DARK MODE ENHANCEMENTS ================= */
+body.dark .card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+}
+
+body.dark .card:hover {
+  background: #222d3f;
+  border-color: var(--secondary-color);
+  box-shadow: 0 8px 16px rgba(77, 166, 255, 0.15);
+}
+
+body.dark form {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+}
+
+body.dark form input,
+body.dark form select,
+body.dark form textarea {
+  background: rgba(15, 20, 25, 0.5);
+  border-color: var(--border-color);
+  color: var(--text-color);
+}
+
+body.dark form input:focus,
+body.dark form select:focus,
+body.dark form textarea:focus {
+  background: rgba(26, 35, 50, 0.8);
+  border-color: var(--secondary-color);
+  box-shadow: 0 0 0 3px rgba(77, 166, 255, 0.2);
+}
+
+body.dark .auth-box,
+body.dark .auth-wrapper {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+}
+
+body.dark .welcome-section {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+}
+
+body.dark .appointment-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+}
+
+body.dark .appointment-card:hover {
+  background: #222d3f;
+  border-color: var(--secondary-color);
+}
+
+body.dark .recommendation-section {
+  background: var(--card-bg);
+  border-left-color: var(--success-color);
+}
+
+body.dark .physician-form {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+}
+
+body.dark .service-card h3,
+body.dark .card h3,
+body.dark .dashboard-card h3,
+body.dark .about-text h2,
+body.dark .services h2,
+body.dark .dashboard h2,
+body.dark .physician-container h2,
+body.dark form h2,
+body.dark .auth-box h2 {
+  color: var(--primary-color);
+}
+
+body.dark .status-pending {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+body.dark .status-confirmed {
+  background: rgba(74, 222, 128, 0.15);
+  color: #4ade80;
+  border: 1px solid rgba(74, 222, 128, 0.3);
+}
+
+body.dark .status-cancelled {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+body.dark .switch-link a,
+body.dark .toggle-link {
+  color: var(--secondary-color);
+}
+
+body.dark .switch-link a:hover,
+body.dark .toggle-link:hover {
+  color: var(--primary-color);
+}
+
+body.dark #responseMessage.error {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #ef4444;
+}
+
+body.dark #responseMessage.success {
+  background: rgba(74, 222, 128, 0.15);
+  border: 1px solid rgba(74, 222, 128, 0.4);
+  color: #4ade80;
+}
+
+body.dark ::-webkit-scrollbar-track {
+  background: var(--bg-color);
+}
+
+body.dark ::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+}
+
+body.dark ::-webkit-scrollbar-thumb:hover {
+  background: var(--secondary-color);
 }
 
 img[loading="lazy"].loaded {
