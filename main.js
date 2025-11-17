@@ -1,4 +1,37 @@
-const API_URL = 'http://localhost:8080/api';
+const SUPABASE_URL = 'https://gjomgbwbqfbngozolede.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdqb21nYndicWZibmdvem9sZWRlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA1MTc0MzEsImV4cCI6MjA3NjA5MzQzMX0.KIeCSgZ5-E2x_gV4Scv7_vFFmMx-_vudvlyN4CW4hes';
+
+// Initialize Supabase client
+// Using the Supabase JS client library
+let supabase = null;
+
+function initSupabase() {
+  try {
+    // Check if Supabase is loaded via CDN
+    // The CDN script exposes window.supabase.createClient
+    if (window.supabase && typeof window.supabase.createClient === 'function') {
+      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      console.log('✅ Supabase client initialized');
+      return true;
+    }
+    
+    console.warn('⚠️ Supabase not loaded yet, will retry on DOMContentLoaded');
+    return false;
+  } catch (e) {
+    console.error('❌ Error initializing Supabase:', e);
+    return false;
+  }
+}
+
+// Try to initialize immediately
+initSupabase();
+
+// Also try when DOM is ready (in case script loads after this file)
+document.addEventListener('DOMContentLoaded', () => {
+  if (!supabase) {
+    initSupabase();
+  }
+});
 
 /* ========== LOGIN ========== */
 document.getElementById('loginForm')?.addEventListener('submit', async e => {
@@ -23,32 +56,59 @@ document.getElementById('loginForm')?.addEventListener('submit', async e => {
   }
 
   try {
-    const res = await fetch(`${API_URL}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
-    const data = await res.json();
-    
-    if (!res.ok) {
-      showMessage(messageEl, data.error || 'Login failed', 'error');
+    if (!supabase) {
+      showMessage(messageEl, 'Supabase client not initialized. Please refresh the page.', 'error');
       submitBtn.disabled = false;
       submitBtn.innerHTML = 'Login';
       return;
     }
-    
-    localStorage.setItem('token', data.token);
-    localStorage.setItem('role', data.user.role);
-    localStorage.setItem('name', data.user.name);
+
+    // Use Supabase Auth for login
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      email: body.email,
+      password: body.password
+    });
+
+    if (authError) {
+      showMessage(messageEl, authError.message || 'Login failed', 'error');
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = 'Login';
+      return;
+    }
+
+    // Get user profile from users table
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', body.email)
+      .single();
+
+    if (userError || !userData) {
+      showMessage(messageEl, 'User profile not found', 'error');
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = 'Login';
+      return;
+    }
+
+    // Store auth session and user data
+    if (authData.session) {
+      localStorage.setItem('token', authData.session.access_token);
+      localStorage.setItem('refresh_token', authData.session.refresh_token);
+      localStorage.setItem('session', JSON.stringify(authData.session));
+    }
+    localStorage.setItem('role', userData.role || 'patient');
+    localStorage.setItem('name', userData.name || authData.user.email);
+    localStorage.setItem('email', authData.user.email);
+    localStorage.setItem('user_id', authData.user.id);
     
     showMessage(messageEl, 'Login successful! Redirecting...', 'success');
     
     setTimeout(() => {
-      if (data.user.role === 'physician') location.href = 'triage.html';
+      if (userData.role === 'physician') location.href = 'triage.html';
       else location.href = 'dashboard.html';
     }, 1000);
   } catch (error) {
-    showMessage(messageEl, 'Network error. Please try again.', 'error');
+    showMessage(messageEl, error.message || 'Network error. Please try again.', 'error');
     submitBtn.disabled = false;
     submitBtn.innerHTML = 'Login';
   }
@@ -87,55 +147,90 @@ document.getElementById('registerForm')?.addEventListener('submit', async e => {
   }
 
   try {
-    const res = await fetch(`${API_URL}/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
-    
-    let data;
-    try {
-      data = await res.json();
-    } catch (jsonError) {
-      // If response is not JSON, it's likely a 404 or server error
-      if (res.status === 404) {
-        showMessage(messageEl, 'Server route not found. Please make sure the server is running on http://localhost:8080', 'error');
-      } else {
-        showMessage(messageEl, `Server error (${res.status}). Please check if the server is running.`, 'error');
+    if (!supabase) {
+      showMessage(messageEl, 'Supabase client not initialized. Please refresh the page.', 'error');
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = 'Sign Up';
+      return;
+    }
+
+    // Use Supabase Auth for registration
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: body.email,
+      password: body.password,
+      options: {
+        data: {
+          name: body.name,
+          role: body.role || 'patient'
+        }
       }
+    });
+
+    if (authError) {
+      showMessage(messageEl, authError.message || 'Registration failed', 'error');
       submitBtn.disabled = false;
       submitBtn.innerHTML = 'Sign Up';
       return;
     }
-    
-    if (!res.ok) {
-      const errorMsg = data.error || data.message || 'Registration failed';
-      // Clean up error message to remove long URLs if present
-      const cleanError = errorMsg.includes('API route not found') 
-        ? 'Server route not found. Please make sure the server is running.' 
-        : errorMsg;
-      showMessage(messageEl, cleanError, 'error');
+
+    // Create user profile in users table
+    let userData;
+    const { data: insertedUser, error: userError } = await supabase
+      .from('users')
+      .insert([{
+        id: authData.user.id,
+        email: body.email,
+        name: body.name,
+        role: body.role || 'patient'
+      }])
+      .select()
+      .single();
+
+    if (userError) {
+      // If user already exists in auth but not in users table, try to get it
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', body.email)
+        .single();
+      
+      if (existingUser) {
+        userData = existingUser;
+      } else {
+        showMessage(messageEl, userError.message || 'Failed to create user profile', 'error');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = 'Sign Up';
+        return;
+      }
+    } else {
+      userData = insertedUser;
+    }
+
+    // Store auth session and user data
+    if (authData.session) {
+      localStorage.setItem('token', authData.session.access_token);
+      localStorage.setItem('refresh_token', authData.session.refresh_token);
+      localStorage.setItem('session', JSON.stringify(authData.session));
+    }
+    localStorage.setItem('role', userData.role || 'patient');
+    localStorage.setItem('name', userData.name || body.name);
+    localStorage.setItem('email', authData.user.email);
+    localStorage.setItem('user_id', authData.user.id);
+      
+      showMessage(messageEl, 'Account created successfully! Redirecting...', 'success');
+      
+      setTimeout(() => {
+        if (userData.role === 'physician') location.href = 'triage.html';
+        else location.href = 'dashboard.html';
+      }, 1000);
+    } else {
+      // Email confirmation required
+      showMessage(messageEl, 'Account created! Please check your email to confirm your account.', 'success');
       submitBtn.disabled = false;
       submitBtn.innerHTML = 'Sign Up';
-      return;
     }
-    
-    showMessage(messageEl, 'Account created successfully! Redirecting...', 'success');
-    
-    localStorage.setItem('token', data.token);
-    localStorage.setItem('role', data.user.role);
-    localStorage.setItem('name', data.user.name);
-    
-    setTimeout(() => {
-      if (data.user.role === 'physician') location.href = 'triage.html';
-      else location.href = 'dashboard.html';
-    }, 1000);
   } catch (error) {
-    // Network error - server is likely not running
-    const errorMsg = error.message.includes('Failed to fetch') || error.message.includes('NetworkError')
-      ? 'Cannot connect to server. Please make sure the server is running on http://localhost:8080'
-      : `Network error: ${error.message}. Please make sure the server is running on http://localhost:8080`;
-    showMessage(messageEl, errorMsg, 'error');
+    showMessage(messageEl, error.message || 'Registration failed. Please try again.', 'error');
     submitBtn.disabled = false;
     submitBtn.innerHTML = 'Sign Up';
   }
@@ -169,8 +264,10 @@ function showMessage(element, message, type = 'info') {
 async function loadDashboard() {
   const token = localStorage.getItem('token');
   const name = localStorage.getItem('name');
-  if (!token) {
-    location.href = 'login.html';
+  const userEmail = localStorage.getItem('email') || (await getCurrentUserEmail());
+  
+  if (!token || !supabase) {
+    if (!token) location.href = 'login.html';
     return;
   }
 
@@ -181,28 +278,44 @@ async function loadDashboard() {
   if (!appointmentsEl) return;
 
   try {
-    const res = await fetch(`${API_URL}/appointments/mine`, {
-      headers: { Authorization: 'Bearer ' + token }
-    });
-    const data = await res.json();
+    // Set auth session for Supabase client if available
+    const sessionStr = localStorage.getItem('session');
+    if (token && sessionStr) {
+      try {
+        const session = JSON.parse(sessionStr);
+        await supabase.auth.setSession(session);
+      } catch (e) {
+        console.warn('Could not restore session, using token only');
+      }
+    }
+    
+    // Query appointments directly from Supabase
+    const { data, error } = await supabase
+      .from('appointments')
+      .select('*')
+      .eq('patient_email', userEmail)
+      .order('appointment_date', { ascending: true });
+    
+    if (error) throw error;
     
     appointmentsEl.innerHTML = '';
     
-    if (!data.list || data.list.length === 0) {
+    if (!data || data.length === 0) {
       appointmentsEl.innerHTML = '<p style="text-align: center; color: var(--text-color); opacity: 0.7;">No appointments yet. <a href="booking.html">Book your first appointment</a></p>';
       return;
     }
     
-    data.list.forEach((a, index) => {
+    data.forEach((a, index) => {
       const card = document.createElement('div');
       card.className = 'card slide-up appointment-card';
       card.style.animationDelay = `${index * 0.1}s`;
       const statusClass = a.status ? `status-${a.status.toLowerCase()}` : 'status-pending';
       card.innerHTML = `
-        <h3>${a.specialty || 'Pending Triage'}</h3>
-        <p><strong>Doctor:</strong> ${a.physicianId?.name || 'Not Assigned'}</p>
-        <p><strong>Date:</strong> ${a.datetime ? new Date(a.datetime).toLocaleString() : 'To be scheduled'}</p>
+        <h3>${a.specialty || a.reason || 'Pending Triage'}</h3>
+        <p><strong>Doctor:</strong> ${a.doctor_name || 'Not Assigned'}</p>
+        <p><strong>Date:</strong> ${a.appointment_date ? new Date(a.appointment_date).toLocaleString() : 'To be scheduled'}</p>
         <p><strong>Status:</strong> <span class="status-badge ${statusClass}">${a.status || 'Pending'}</span></p>
+        ${a.notes ? `<p><strong>Notes:</strong> ${a.notes}</p>` : ''}
       `;
       appointmentsEl.appendChild(card);
     });
@@ -212,11 +325,24 @@ async function loadDashboard() {
   }
 }
 
+async function getCurrentUserEmail() {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      localStorage.setItem('email', user.email);
+      return user.email;
+    }
+  } catch (e) {
+    console.error('Error getting user email:', e);
+  }
+  return null;
+}
+
 /* ========== TRIAGE QUEUE ========== */
 async function loadTriageQueue() {
   const token = localStorage.getItem('token');
-  if (!token) {
-    location.href = 'login.html';
+  if (!token || !supabase) {
+    if (!token) location.href = 'login.html';
     return;
   }
 
@@ -224,27 +350,45 @@ async function loadTriageQueue() {
   if (!root) return;
 
   try {
-    const res = await fetch(`${API_URL}/appointments/triage-queue`, {
-      headers: { Authorization: 'Bearer ' + token }
-    });
-    const data = await res.json();
+    // Set auth session for Supabase client if available
+    const sessionStr = localStorage.getItem('session');
+    if (token && sessionStr) {
+      try {
+        const session = JSON.parse(sessionStr);
+        await supabase.auth.setSession(session);
+      } catch (e) {
+        console.warn('Could not restore session, using token only');
+      }
+    }
+    
+    // Query pending appointments directly from Supabase
+    // Get appointments with status 'Pending' or without doctor_name
+    const { data, error } = await supabase
+      .from('appointments')
+      .select('*')
+      .eq('status', 'Pending')
+      .order('appointment_date', { ascending: true });
+    
+    if (error) throw error;
     
     root.innerHTML = '';
     
-    if (!data.queue || data.queue.length === 0) {
+    if (!data || data.length === 0) {
       root.innerHTML = '<p style="text-align: center; color: var(--text-color); opacity: 0.7; grid-column: 1 / -1;">No pending triage cases.</p>';
       return;
     }
     
-    data.queue.forEach((a, index) => {
+    data.forEach((a, index) => {
       const div = document.createElement('div');
       div.className = 'card slide-up';
       div.style.animationDelay = `${index * 0.1}s`;
       div.innerHTML = `
-        <h3>${a.patientId?.name || 'Unknown Patient'}</h3>
+        <h3>${a.patient_name || 'Unknown Patient'}</h3>
+        <p><strong>Email:</strong> ${a.patient_email || 'N/A'}</p>
         <p><strong>Reason:</strong> ${a.reason || 'No reason provided'}</p>
-        <p><strong>Date:</strong> ${a.createdAt ? new Date(a.createdAt).toLocaleDateString() : 'N/A'}</p>
-        <button class="btn btn-primary" onclick="triage('${a._id}')">Assign Doctor</button>
+        <p><strong>Phone:</strong> ${a.phone || 'N/A'}</p>
+        <p><strong>Date:</strong> ${a.created_at ? new Date(a.created_at).toLocaleDateString() : (a.appointment_date ? new Date(a.appointment_date).toLocaleDateString() : 'N/A')}</p>
+        <button class="btn btn-primary" onclick="triage('${a.id}')">Assign Doctor</button>
       `;
       root.appendChild(div);
     });
@@ -258,34 +402,58 @@ async function triage(id) {
   const assignedSpecialty = prompt('Assign specialty (e.g., Cardiologist, Dermatologist):');
   if (!assignedSpecialty) return;
   
-  const assignedPhysicianId = prompt('Physician ID (optional - leave empty if not assigning specific physician):');
+  const assignedPhysicianId = prompt('Physician Name (optional - leave empty if not assigning specific physician):');
   const datetime = prompt('Set date/time (YYYY-MM-DDTHH:MM) or leave empty:');
   const notes = prompt('Notes (optional):');
   
   const token = localStorage.getItem('token');
-  if (!token) {
+  if (!token || !supabase) {
     alert('Not authenticated. Please login again.');
     location.href = 'login.html';
     return;
   }
 
   try {
-    const res = await fetch(`${API_URL}/appointments/triage/${id}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-      body: JSON.stringify({ assignedSpecialty, assignedPhysicianId: assignedPhysicianId || undefined, datetime: datetime || undefined, notes: notes || undefined })
-    });
-    const data = await res.json();
-    
-    if (res.ok) {
-      alert('Appointment triaged successfully!');
-      loadTriageQueue();
-    } else {
-      alert(data.error || 'Error triaging appointment');
+    // Set auth session for Supabase client if available
+    const sessionStr = localStorage.getItem('session');
+    if (token && sessionStr) {
+      try {
+        const session = JSON.parse(sessionStr);
+        await supabase.auth.setSession(session);
+      } catch (e) {
+        console.warn('Could not restore session, using token only');
+      }
     }
+    
+    // Update appointment directly in Supabase
+    const updateData = {
+      specialty: assignedSpecialty,
+      status: 'Scheduled',
+      notes: notes || null,
+    };
+    
+    if (assignedPhysicianId) {
+      updateData.doctor_name = assignedPhysicianId;
+    }
+    
+    if (datetime) {
+      updateData.appointment_date = datetime;
+    }
+    
+    const { data, error } = await supabase
+      .from('appointments')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    
+    alert('Appointment triaged successfully!');
+    loadTriageQueue();
   } catch (error) {
     console.error('Error triaging:', error);
-    alert('Network error. Please try again.');
+    alert('Error triaging appointment: ' + (error.message || 'Unknown error'));
   }
 }
 
@@ -407,30 +575,15 @@ async function loadAvailability() {
     }
 
     try {
-      // Fetch available slots from backend
-      const res = await fetch(`${API_URL}/availability/${specialty}`);
+      // Generate availability slots on the frontend
+      // In a real app, you could query Supabase for actual doctor availability
+      const slots = generateAvailabilitySlots(specialty);
       
-      let data;
-      try {
-        data = await res.json();
-      } catch (jsonError) {
-        console.error('Error parsing availability response:', jsonError);
-        if (res.status === 404) {
-          console.error('Availability route not found. Please make sure the server is running.');
-        }
-        return;
-      }
-
-      if (!res.ok) {
-        console.error('Error fetching availability:', data.error || 'Unknown error');
-        return;
-      }
-
       section.classList.remove('hidden');
       slotSelect.innerHTML = "";
       
-      if (data.slots && data.slots.length > 0) {
-        data.slots.forEach(slot => {
+      if (slots && slots.length > 0) {
+        slots.forEach(slot => {
           const opt = document.createElement('option');
           opt.value = slot.datetime;
           opt.textContent = new Date(slot.datetime).toLocaleString();
@@ -440,9 +593,40 @@ async function loadAvailability() {
         slotSelect.innerHTML = '<option value="">No available slots</option>';
       }
     } catch (error) {
-      console.error('Network error fetching availability:', error);
+      console.error('Error generating availability:', error);
     }
   });
+}
+
+function generateAvailabilitySlots(specialty) {
+  // Generate mock availability slots for the next 7 days
+  const slots = [];
+  const now = new Date();
+  
+  for (let i = 1; i <= 7; i++) {
+    const date = new Date(now);
+    date.setDate(now.getDate() + i);
+    
+    // Generate 4 time slots per day (9 AM, 11 AM, 2 PM, 4 PM)
+    const timeSlots = ['09:00', '11:00', '14:00', '16:00'];
+    
+    timeSlots.forEach(time => {
+      const slotDateTime = new Date(date);
+      const [hours, minutes] = time.split(':');
+      slotDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+      
+      // Only add future slots
+      if (slotDateTime > now) {
+        slots.push({
+          datetime: slotDateTime.toISOString(),
+          specialty: specialty,
+          available: true
+        });
+      }
+    });
+  }
+  
+  return slots;
 }
 // ==========================
 // Physician Help Page Logic
@@ -549,40 +733,76 @@ document.addEventListener("DOMContentLoaded", () => {
     submitBtn.innerHTML = '<span class="loading"></span> Booking...';
 
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/appointments`, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          ...(token && { Authorization: 'Bearer ' + token })
-        },
-        body: JSON.stringify({ 
-          reason: `Appointment with ${doctorName}`,
-          patientName,
-          patientEmail,
-          phone,
-          doctorName,
-          appointmentDate
-        }),
-      });
-
-      let data;
-      try {
-        data = await res.json();
-      } catch (jsonError) {
-        // If response is not JSON, it's likely a 404 or server error
-        if (res.status === 404) {
-          showMessage(responseMessage, "❌ Server route not found. Please make sure the server is running on http://localhost:8080", "error");
-        } else {
-          showMessage(responseMessage, `❌ Server error (${res.status}). Please check if the server is running.`, "error");
-        }
+      if (!supabase) {
+        showMessage(responseMessage, "❌ Supabase client not initialized. Please refresh the page.", "error");
         submitBtn.disabled = false;
         submitBtn.innerHTML = 'Book Appointment';
         return;
       }
 
-      if (res.ok) {
-        showMessage(responseMessage, "✅ " + (data.message || "Appointment booked successfully!"), "success");
+      const token = localStorage.getItem('token');
+      
+      // Set auth session if available
+      const sessionStr = localStorage.getItem('session');
+      if (token && sessionStr) {
+        try {
+          const session = JSON.parse(sessionStr);
+          await supabase.auth.setSession(session);
+        } catch (e) {
+          console.warn('Could not restore session, using token only');
+        }
+      }
+
+      // Insert appointment directly into Supabase
+      const appointmentData = {
+        patient_name: patientName,
+        patient_email: patientEmail,
+        appointment_date: appointmentDate,
+        phone: phone || null,
+        reason: `Appointment with ${doctorName}`,
+        status: 'Pending',
+        doctor_name: doctorName || null,
+      };
+
+      const { data, error } = await supabase
+        .from('appointments')
+        .insert([appointmentData])
+        .select()
+        .single();
+
+      if (error) {
+        // If doctor_name column doesn't exist, retry without it
+        if (error.message && (error.message.includes('doctor_name') || (error.message.includes('column') && error.message.includes('doctor')))) {
+          delete appointmentData.doctor_name;
+          const { data: retryData, error: retryError } = await supabase
+            .from('appointments')
+            .insert([appointmentData])
+            .select()
+            .single();
+          
+          if (retryError) throw retryError;
+          
+          showMessage(responseMessage, "✅ Appointment booked successfully!", "success");
+          form.reset();
+          
+          // Save to localStorage as fallback
+          localStorage.setItem('lastAppointment', JSON.stringify({
+            patientName,
+            patientEmail,
+            phone,
+            doctorName,
+            appointmentDate
+          }));
+
+          // Redirect after 2 seconds
+          setTimeout(() => {
+            location.href = 'appointment.html';
+          }, 2000);
+        } else {
+          throw error;
+        }
+      } else {
+        showMessage(responseMessage, "✅ Appointment booked successfully!", "success");
         form.reset();
         
         // Save to localStorage as fallback
@@ -598,17 +818,10 @@ document.addEventListener("DOMContentLoaded", () => {
         setTimeout(() => {
           location.href = 'appointment.html';
         }, 2000);
-      } else {
-        const errorMsg = data.error || data.message || "Something went wrong";
-        showMessage(responseMessage, "❌ " + errorMsg, "error");
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = 'Book Appointment';
       }
     } catch (err) {
       console.error("Error:", err);
-      const errorMsg = err.message && (err.message.includes('Failed to fetch') || err.message.includes('NetworkError'))
-        ? "Cannot connect to server. Please make sure the server is running on http://localhost:8080"
-        : `Network error: ${err.message}. Please check your connection.`;
+      const errorMsg = err.message || "Something went wrong. Please try again.";
       showMessage(responseMessage, "❌ " + errorMsg, "error");
       submitBtn.disabled = false;
       submitBtn.innerHTML = 'Book Appointment';

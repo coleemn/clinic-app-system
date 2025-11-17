@@ -49,30 +49,48 @@
     </div>
   </footer>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="main.js"></script>
   <script>
     document.addEventListener("DOMContentLoaded", async () => {
       const summaryContainer = document.getElementById("appointmentSummary");
       const token = localStorage.getItem('token');
+      const userEmail = localStorage.getItem('email');
       
-      if (token) {
-        // Try to load from API
+      if (token && supabase && userEmail) {
+        // Try to load from Supabase
         try {
-          const res = await fetch(`${API_URL}/appointments/mine`, {
-            headers: { Authorization: 'Bearer ' + token }
-          });
-          const data = await res.json();
+          // Set auth session for Supabase client if available
+          const sessionStr = localStorage.getItem('session');
+          if (token && sessionStr) {
+            try {
+              const session = JSON.parse(sessionStr);
+              await supabase.auth.setSession(session);
+            } catch (e) {
+              console.warn('Could not restore session, using token only');
+            }
+          }
           
-          if (data.list && data.list.length > 0) {
+          // Query appointments directly from Supabase
+          const { data, error } = await supabase
+            .from('appointments')
+            .select('*')
+            .eq('patient_email', userEmail)
+            .order('appointment_date', { ascending: true });
+          
+          if (error) throw error;
+          
+          if (data && data.length > 0) {
             summaryContainer.innerHTML = '<h2>Your Appointments</h2>';
-            data.list.forEach(a => {
+            data.forEach(a => {
               const card = document.createElement('div');
               card.className = 'appointment-card';
               card.innerHTML = `
-                <h3>${a.specialty || 'Pending Triage'}</h3>
-                <p><strong>Doctor:</strong> ${a.physicianId ? a.physicianId.name : 'Not Assigned'}</p>
-                <p><strong>Date:</strong> ${a.datetime ? new Date(a.datetime).toLocaleString() : 'To be scheduled'}</p>
-                <p><strong>Status:</strong> <span class="status-badge status-${a.status || 'pending'}">${a.status || 'Pending'}</span></p>
+                <h3>${a.specialty || a.reason || 'Pending Triage'}</h3>
+                <p><strong>Doctor:</strong> ${a.doctor_name || 'Not Assigned'}</p>
+                <p><strong>Date:</strong> ${a.appointment_date ? new Date(a.appointment_date).toLocaleString() : 'To be scheduled'}</p>
+                <p><strong>Status:</strong> <span class="status-badge status-${a.status ? a.status.toLowerCase() : 'pending'}">${a.status || 'Pending'}</span></p>
+                ${a.notes ? `<p><strong>Notes:</strong> ${a.notes}</p>` : ''}
               `;
               summaryContainer.appendChild(card);
             });
