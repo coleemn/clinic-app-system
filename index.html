@@ -14,11 +14,12 @@
   <!-- NAVBAR -->
   <header>
     <div class="container nav">
-      <h1 class="logo">MediConect</h1>
+      <h1 class="logo">MediConnect</h1>
       <nav>
         <ul class="nav-links">
           <li><a href="index.html" class="active">Home</a></li>
           <li><a href="booking.html">Book Appointment</a></li>
+          <li><a href="appointment.html">My Appointments</a></li>
           <li><a href="specialists.html">Doctors</a></li>
           <li><a href="physician.html">Physician Help</a></li>
           <li><a href="login.html">Login</a></li>
@@ -110,48 +111,41 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="main.js"></script>
   <script>
-    // Redirect to login page on site open
-    document.addEventListener('DOMContentLoaded', async () => {
-      // Wait a bit for localStorage and Supabase to be ready (mobile browsers)
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
-      let token = localStorage.getItem('token');
-      
-      // Retry once if token not found (mobile browser timing issue)
-      if (!token) {
-        await new Promise(resolve => setTimeout(resolve, 200));
-        token = localStorage.getItem('token');
-      }
-      
-      // If user is already logged in, redirect to dashboard
-      if (token && supabase) {
-        try {
-          // Check if session is still valid
-          const sessionStr = localStorage.getItem('session');
-          if (sessionStr) {
-            const session = JSON.parse(sessionStr);
-            const { error } = await supabase.auth.setSession(session);
-            if (!error) {
-              // Session valid, redirect to dashboard
-              // Add small delay to ensure session is set
-              await new Promise(resolve => setTimeout(resolve, 100));
-              location.href = 'dashboard.html';
-            } else {
-              // Session invalid, go to login
-              location.href = 'login.html';
+    // Homepage - accessible to everyone (no redirect)
+    // Users can navigate to login/register or dashboard manually
+    document.addEventListener('DOMContentLoaded', () => {
+      // Optional: Update navbar based on login status
+      const token = localStorage.getItem('token');
+      if (token) {
+        // User is logged in - update navbar to show logout instead of login/signup
+        const navLinks = document.querySelector('.nav-links');
+        if (navLinks) {
+          // Check if login/signup links exist
+          const loginLink = navLinks.querySelector('a[href="login.html"]');
+          const signupLink = navLinks.querySelector('a[href="register.html"]');
+          
+          if (loginLink && signupLink) {
+            // Replace login/signup with dashboard link and logout button
+            const loginLi = loginLink.parentElement;
+            const signupLi = signupLink.parentElement;
+            
+            // Remove login and signup links
+            loginLi.remove();
+            signupLi.remove();
+            
+            // Add dashboard and logout links before theme toggle
+            const themeToggle = navLinks.querySelector('.theme-toggle');
+            if (themeToggle) {
+              const dashboardLi = document.createElement('li');
+              dashboardLi.innerHTML = '<a href="dashboard.html">Dashboard</a>';
+              navLinks.insertBefore(dashboardLi, themeToggle.parentElement);
+              
+              const logoutLi = document.createElement('li');
+              logoutLi.innerHTML = '<a href="#" onclick="logout(); return false;" class="logout-btn">Logout</a>';
+              navLinks.insertBefore(logoutLi, themeToggle.parentElement);
             }
-          } else {
-            // No session, go to login
-            location.href = 'login.html';
           }
-        } catch (e) {
-          // Error checking session, go to login
-          console.warn('Error checking session:', e);
-          location.href = 'login.html';
         }
-      } else {
-        // Not logged in, redirect to login page
-        location.href = 'login.html';
       }
     });
   </script>

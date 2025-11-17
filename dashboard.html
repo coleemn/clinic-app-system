@@ -10,15 +10,17 @@
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
 </head>
 <body>
-  <header class="header">
-    <div class="container">
-      <h1>🏥 MediConnect</h1>
+  <header>
+    <div class="container nav">
+      <h1 class="logo">MediConnect</h1>
       <nav>
-        <ul>
+        <ul class="nav-links">
           <li><a href="dashboard.html" class="active">Dashboard</a></li>
           <li><a href="booking.html">Book Appointment</a></li>
+          <li><a href="appointment.html">My Appointments</a></li>
           <li><a href="physician.html">Physician Help</a></li>
           <li><a href="specialists.html">Doctors</a></li>
+          <li><button class="theme-toggle" onclick="toggleTheme()" title="Toggle Theme">🌙</button></li>
           <li><a href="#" onclick="logout(); return false;" class="logout-btn">Logout</a></li>
         </ul>
       </nav>
@@ -81,8 +83,24 @@
   <script>
     // Load dashboard when page loads and Supabase is ready
     document.addEventListener('DOMContentLoaded', async () => {
-      // Wait a bit for Supabase to initialize
-      await new Promise(resolve => setTimeout(resolve, 200));
+      // Wait for Supabase to initialize
+      if (!supabase) {
+        await new Promise(resolve => {
+          const checkSupabase = setInterval(() => {
+            if (supabase) {
+              clearInterval(checkSupabase);
+              resolve();
+            }
+          }, 100);
+          setTimeout(() => {
+            clearInterval(checkSupabase);
+            resolve();
+          }, 5000);
+        });
+      }
+      
+      // Wait a bit for Supabase to be fully ready
+      await new Promise(resolve => setTimeout(resolve, 300));
       
       // Check if user is logged in - with retry for mobile browsers
       let token = localStorage.getItem('token');
@@ -97,6 +115,27 @@
         // Still no token, redirect to login
         location.href = 'login.html';
         return;
+      }
+      
+      // Ensure email is in localStorage before loading
+      let userEmail = localStorage.getItem('email');
+      if (!userEmail && supabase) {
+        try {
+          const sessionStr = localStorage.getItem('session');
+          if (sessionStr) {
+            const session = JSON.parse(sessionStr);
+            await supabase.auth.setSession(session);
+            await new Promise(resolve => setTimeout(resolve, 200));
+          }
+          
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user && user.email) {
+            localStorage.setItem('email', user.email);
+            console.log('Retrieved email for dashboard:', user.email);
+          }
+        } catch (e) {
+          console.warn('Could not retrieve email for dashboard:', e);
+        }
       }
       
       // Try to load dashboard

@@ -13,15 +13,24 @@
 <body>
   <header>
     <div class="container nav">
-      <h1 class="logo">Admin Dashboard</h1>
+      <h1 class="logo">MediConnect</h1>
       <nav>
         <ul class="nav-links">
+          <li><a href="admin.html" class="active">Admin Dashboard</a></li>
+          <li><a href="dashboard.html">Dashboard</a></li>
           <li><button class="theme-toggle" onclick="toggleTheme()" title="Toggle Theme">🌙</button></li>
           <li><a href="#" onclick="logout(); return false;" class="logout-btn">Logout</a></li>
         </ul>
       </nav>
     </div>
   </header>
+
+  <section class="hero small">
+    <div class="container hero-content">
+      <h2>Admin Dashboard</h2>
+      <p>System overview and analytics</p>
+    </div>
+  </section>
 
   <section class="dashboard container fade-in">
     <h2>System Overview</h2>
@@ -37,30 +46,40 @@
     </div>
   </section>
 
+  <footer>
+    <div class="container">
+      <p>© 2025 MediConnect. All Rights Reserved.</p>
+    </div>
+  </footer>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="main.js"></script>
   <script>
-    const ctx1 = document.getElementById('chartPatients');
-    const ctx2 = document.getElementById('chartDoctors');
+    document.addEventListener('DOMContentLoaded', () => {
+      const ctx1 = document.getElementById('chartPatients');
+      const ctx2 = document.getElementById('chartDoctors');
 
-    new Chart(ctx1, {
-      type: 'bar',
-      data: {
-        labels: ['Jan', 'Feb', 'Mar', 'Apr'],
-        datasets: [{
-          label: 'New Patients',
-          data: [10, 15, 8, 20]
-        }]
-      }
-    });
+      if (ctx1 && ctx2 && typeof Chart !== 'undefined') {
+        new Chart(ctx1, {
+          type: 'bar',
+          data: {
+            labels: ['Jan', 'Feb', 'Mar', 'Apr'],
+            datasets: [{
+              label: 'New Patients',
+              data: [10, 15, 8, 20]
+            }]
+          }
+        });
 
-    new Chart(ctx2, {
-      type: 'pie',
-      data: {
-        labels: ['Physicians', 'Specialists', 'General'],
-        datasets: [{
-          data: [4, 6, 8]
-        }]
+        new Chart(ctx2, {
+          type: 'pie',
+          data: {
+            labels: ['Physicians', 'Specialists', 'General'],
+            datasets: [{
+              data: [4, 6, 8]
+            }]
+          }
+        });
       }
     });
   </script>

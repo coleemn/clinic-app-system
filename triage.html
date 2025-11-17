@@ -12,10 +12,11 @@
 <body>
   <header>
     <div class="container nav">
-      <h1 class="logo">MediConnect - Triage</h1>
+      <h1 class="logo">MediConnect</h1>
       <nav>
         <ul class="nav-links">
           <li><a href="triage.html" class="active">Triage Dashboard</a></li>
+          <li><a href="dashboard.html">Dashboard</a></li>
           <li><button class="theme-toggle" onclick="toggleTheme()" title="Toggle Theme">🌙</button></li>
           <li><a href="#" onclick="logout(); return false;" class="logout-btn">Logout</a></li>
         </ul>
@@ -23,15 +24,57 @@
     </div>
   </header>
 
+  <section class="hero small">
+    <div class="container hero-content">
+      <h2>Triage Dashboard</h2>
+      <p>Review and manage pending appointment cases</p>
+    </div>
+  </section>
+
   <section class="dashboard container">
     <h2>Pending Triage Cases</h2>
     <div id="queue" class="card-grid"></div>
   </section>
 
+  <footer>
+    <div class="container">
+      <p>© 2025 MediConnect. All Rights Reserved.</p>
+    </div>
+  </footer>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="main.js"></script>
   <script>
-    loadTriageQueue(); // defined in main.js
+    // Load triage queue when page loads and Supabase is ready
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Wait a bit for Supabase to initialize
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Check if user is logged in
+      let token = localStorage.getItem('token');
+      
+      // Retry once if token not found (mobile browser timing issue)
+      if (!token) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+        token = localStorage.getItem('token');
+      }
+      
+      if (!token) {
+        location.href = 'login.html';
+        return;
+      }
+      
+      // Load triage queue
+      if (typeof loadTriageQueue === 'function') {
+        await loadTriageQueue();
+      } else {
+        setTimeout(async () => {
+          if (typeof loadTriageQueue === 'function') {
+            await loadTriageQueue();
+          }
+        }, 500);
+      }
+    });
   </script>
 </body>
 </html>

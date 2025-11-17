@@ -362,47 +362,115 @@ async function loadDashboard() {
     if (token && sessionStr) {
       try {
         const session = JSON.parse(sessionStr);
-        const { error: sessionError } = await supabase.auth.setSession(session);
+        const { data: sessionData, error: sessionError } = await supabase.auth.setSession(session);
         if (sessionError) {
           console.warn('Session error:', sessionError);
-          // Try to get user email directly
+          // If session is invalid, try to refresh
+          const refreshToken = localStorage.getItem('refresh_token');
+          if (refreshToken) {
+            const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+            if (!refreshError && refreshData.session) {
+              localStorage.setItem('token', refreshData.session.access_token);
+              localStorage.setItem('session', JSON.stringify(refreshData.session));
+              await supabase.auth.setSession(refreshData.session);
+            }
+          }
+        } else if (sessionData.session) {
+          // Ensure session is properly stored
+          localStorage.setItem('token', sessionData.session.access_token);
+          localStorage.setItem('session', JSON.stringify(sessionData.session));
         }
       } catch (e) {
         console.warn('Could not restore session:', e);
       }
     }
 
-    // Get user email - try multiple sources
+    // Wait a bit for session to be properly established
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Get user email - try multiple sources with retries
     let userEmail = localStorage.getItem('email');
     
     if (!userEmail) {
-      // Try to get from Supabase auth
+      // Try to get from Supabase auth with retries
+      for (let i = 0; i < 3; i++) {
+        try {
+          const { data: { user }, error: userError } = await supabase.auth.getUser();
+          if (user && user.email) {
+            userEmail = user.email;
+            localStorage.setItem('email', user.email);
+            console.log('Retrieved email from Supabase auth:', userEmail);
+            break;
+          } else if (userError) {
+            console.warn(`Error getting user (attempt ${i + 1}):`, userError);
+            if (i < 2) {
+              // Wait before retry
+              await new Promise(resolve => setTimeout(resolve, 200));
+            }
+          }
+        } catch (e) {
+          console.warn(`Error getting user email (attempt ${i + 1}):`, e);
+          if (i < 2) {
+            await new Promise(resolve => setTimeout(resolve, 200));
+          }
+        }
+      }
+    }
+
+    // If still no email, check if we can get it from the current auth user
+    if (!userEmail) {
       try {
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
-        if (user && user.email) {
-          userEmail = user.email;
-          localStorage.setItem('email', user.email);
-        } else if (userError) {
-          console.warn('Error getting user:', userError);
+        const currentUser = supabase.auth.user;
+        if (currentUser && currentUser.email) {
+          userEmail = currentUser.email;
+          localStorage.setItem('email', userEmail);
+          console.log('Retrieved email from current auth user:', userEmail);
         }
       } catch (e) {
-        console.warn('Error getting user email:', e);
+        console.warn('Could not get email from auth user:', e);
       }
     }
 
     if (!userEmail) {
-      appointmentsEl.innerHTML = '<p style="text-align: center; color: var(--text-color); opacity: 0.7;">Error: Could not identify user. Please log out and log back in.</p>';
+      console.error('Could not retrieve user email');
+      appointmentsEl.innerHTML = '<p style="text-align: center; color: var(--text-color); opacity: 0.7;">Error: Could not identify user. Please <a href="login.html">log out and log back in</a>.</p>';
       return;
     }
 
     console.log('Loading appointments for:', userEmail);
     
-    // Query appointments directly from Supabase
-    const { data, error } = await supabase
-      .from('appointments')
-      .select('*')
-      .eq('patient_email', userEmail)
-      .order('appointment_date', { ascending: true });
+    // Query appointments directly from Supabase with retry logic
+    let data, error;
+    for (let i = 0; i < 2; i++) {
+      const result = await supabase
+        .from('appointments')
+        .select('*')
+        .eq('patient_email', userEmail)
+        .order('appointment_date', { ascending: true });
+      
+      data = result.data;
+      error = result.error;
+      
+      if (!error) {
+        break;
+      }
+      
+      if (error && i < 1) {
+        console.warn(`Query error (attempt ${i + 1}), retrying...`, error);
+        // Wait and retry after refreshing session
+        await new Promise(resolve => setTimeout(resolve, 300));
+        // Refresh session
+        const sessionStr = localStorage.getItem('session');
+        if (sessionStr) {
+          try {
+            const session = JSON.parse(sessionStr);
+            await supabase.auth.setSession(session);
+          } catch (e) {
+            console.warn('Could not refresh session:', e);
+          }
+        }
+      }
+    }
     
     if (error) {
       console.error('Supabase query error:', error);
@@ -603,12 +671,21 @@ function toggleMobileMenu() {
 
 window.addEventListener('DOMContentLoaded', () => {
   // Load theme preference
-  if (localStorage.getItem('theme') === 'dark') {
+  const savedTheme = localStorage.getItem('theme');
+  if (savedTheme === 'dark') {
     document.body.classList.add('dark');
     const themeButtons = document.querySelectorAll('.theme-toggle');
     themeButtons.forEach(btn => {
       btn.textContent = '☀️';
       btn.title = 'Switch to Light Mode';
+    });
+  } else {
+    // Ensure light mode is applied (remove dark class if present)
+    document.body.classList.remove('dark');
+    const themeButtons = document.querySelectorAll('.theme-toggle');
+    themeButtons.forEach(btn => {
+      btn.textContent = '🌙';
+      btn.title = 'Switch to Dark Mode';
     });
   }
   
@@ -659,6 +736,54 @@ window.addEventListener('DOMContentLoaded', () => {
     const menuToggle = document.querySelector('.menu-toggle');
     if (navLinks && menuToggle && !navLinks.contains(e.target) && !menuToggle.contains(e.target)) {
       navLinks.classList.remove('active');
+    }
+  });
+
+  // Add smooth page transitions to navigation links
+  const navLinks = document.querySelectorAll('.nav-links a:not([href^="#"])');
+  navLinks.forEach(link => {
+    link.addEventListener('click', function(e) {
+      const href = this.getAttribute('href');
+      
+      // Only add transition if it's an internal link and not the same page
+      if (href && !href.startsWith('http') && !href.startsWith('#') && !href.startsWith('mailto:')) {
+        const currentPage = window.location.pathname.split('/').pop() || 'index.html';
+        const targetPage = href.split('/').pop();
+        
+        // Don't add transition if clicking on the same page
+        if (currentPage !== targetPage && !this.classList.contains('logout-btn')) {
+          e.preventDefault();
+          
+          // Add fade-out effect
+          document.body.style.transition = 'opacity 0.25s ease-out, transform 0.25s ease-out';
+          document.body.style.opacity = '0';
+          document.body.style.transform = 'translateY(-8px)';
+          
+          // Navigate after fade-out
+          setTimeout(() => {
+            window.location.href = href;
+          }, 250);
+        }
+      }
+    });
+  });
+  
+  // Handle logo clicks for smooth transitions (make logo clickable)
+  const logoElements = document.querySelectorAll('.logo:not(a)');
+  logoElements.forEach(logo => {
+    if (!logo.closest('a')) {
+      logo.style.cursor = 'pointer';
+      logo.addEventListener('click', function() {
+        const currentPage = window.location.pathname.split('/').pop() || 'index.html';
+        if (currentPage !== 'index.html') {
+          document.body.style.transition = 'opacity 0.25s ease-out, transform 0.25s ease-out';
+          document.body.style.opacity = '0';
+          document.body.style.transform = 'translateY(-8px)';
+          setTimeout(() => {
+            window.location.href = 'index.html';
+          }, 250);
+        }
+      });
     }
   });
 
@@ -808,9 +933,50 @@ document.addEventListener("DOMContentLoaded", () => {
 // --- Existing JS code above (for menu toggle, etc.) ---
 
 // --- Booking Form Logic ---
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   const form = document.getElementById("appointmentForm");
   if (!form) return;
+
+  // Pre-fill email if user is logged in
+  const patientEmailInput = document.getElementById("patientEmail");
+  if (patientEmailInput) {
+    // Wait a bit for localStorage and Supabase to be ready
+    await new Promise(resolve => setTimeout(resolve, 200));
+    
+    let userEmail = localStorage.getItem('email');
+    
+    if (!userEmail && supabase) {
+      // Try to get from Supabase auth
+      try {
+        const sessionStr = localStorage.getItem('session');
+        if (sessionStr) {
+          const session = JSON.parse(sessionStr);
+          await supabase.auth.setSession(session);
+        }
+        
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user && user.email) {
+          userEmail = user.email;
+          localStorage.setItem('email', user.email);
+        }
+      } catch (e) {
+        console.warn('Could not get user email for pre-fill:', e);
+      }
+    }
+    
+    if (userEmail && !patientEmailInput.value) {
+      patientEmailInput.value = userEmail;
+    }
+    
+    // Pre-fill name if available
+    const patientNameInput = document.getElementById("patientName");
+    if (patientNameInput) {
+      const userName = localStorage.getItem('name');
+      if (userName && !patientNameInput.value) {
+        patientNameInput.value = userName;
+      }
+    }
+  }
 
   const responseMessage = document.getElementById("responseMessage");
   const submitBtn = form.querySelector('button[type="submit"]');
@@ -867,10 +1033,27 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
 
+      // Get logged-in user's email if available (use this to ensure consistency)
+      let loggedInEmail = localStorage.getItem('email');
+      if (!loggedInEmail && supabase) {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user && user.email) {
+            loggedInEmail = user.email;
+            localStorage.setItem('email', loggedInEmail);
+          }
+        } catch (e) {
+          console.warn('Could not get logged-in user email:', e);
+        }
+      }
+      
+      // Use logged-in email if available, otherwise use form email
+      const emailToUse = loggedInEmail || patientEmail;
+      
       // Insert appointment directly into Supabase
       const appointmentData = {
         patient_name: patientName,
-        patient_email: patientEmail,
+        patient_email: emailToUse, // Use logged-in email for consistency
         appointment_date: appointmentDate,
         phone: phone || null,
         reason: `Appointment with ${doctorName}`,

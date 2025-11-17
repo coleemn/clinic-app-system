@@ -15,11 +15,13 @@
       <h1 class="logo">MediConnect</h1>
       <nav>
         <ul class="nav-links">
-          <li><a href="index.html">Home</a></li>
-          <li><a href="booking.html">Book Appointment</a></li>
           <li><a href="dashboard.html">Dashboard</a></li>
-          <li><a href="login.html">Login</a></li>
+          <li><a href="booking.html">Book Appointment</a></li>
+          <li><a href="appointment.html" class="active">My Appointments</a></li>
+          <li><a href="physician.html">Physician Help</a></li>
+          <li><a href="specialists.html">Doctors</a></li>
           <li><button class="theme-toggle" onclick="toggleTheme()" title="Toggle Theme">🌙</button></li>
+          <li><a href="#" onclick="logout(); return false;" class="logout-btn">Logout</a></li>
         </ul>
       </nav>
     </div>
@@ -92,46 +94,112 @@
         if (token && sessionStr) {
           try {
             const session = JSON.parse(sessionStr);
-            const { error: sessionError } = await supabase.auth.setSession(session);
+            const { data: sessionData, error: sessionError } = await supabase.auth.setSession(session);
             if (sessionError) {
               console.warn('Session error:', sessionError);
+              // Try to refresh session
+              const refreshToken = localStorage.getItem('refresh_token');
+              if (refreshToken) {
+                const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+                if (!refreshError && refreshData.session) {
+                  localStorage.setItem('token', refreshData.session.access_token);
+                  localStorage.setItem('session', JSON.stringify(refreshData.session));
+                  await supabase.auth.setSession(refreshData.session);
+                }
+              }
+            } else if (sessionData && sessionData.session) {
+              localStorage.setItem('token', sessionData.session.access_token);
+              localStorage.setItem('session', JSON.stringify(sessionData.session));
             }
           } catch (e) {
             console.warn('Could not restore session:', e);
           }
         }
 
-        // Get user email - try multiple sources
+        // Wait for session to be established
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        // Get user email - try multiple sources with retries
         let userEmail = localStorage.getItem('email');
         
         if (!userEmail) {
-          // Try to get from Supabase auth
+          // Try to get from Supabase auth with retries
+          for (let i = 0; i < 3; i++) {
+            try {
+              const { data: { user }, error: userError } = await supabase.auth.getUser();
+              if (user && user.email) {
+                userEmail = user.email;
+                localStorage.setItem('email', user.email);
+                console.log('Retrieved email from Supabase auth:', userEmail);
+                break;
+              } else if (userError) {
+                console.warn(`Error getting user (attempt ${i + 1}):`, userError);
+                if (i < 2) {
+                  await new Promise(resolve => setTimeout(resolve, 200));
+                }
+              }
+            } catch (e) {
+              console.warn(`Error getting user email (attempt ${i + 1}):`, e);
+              if (i < 2) {
+                await new Promise(resolve => setTimeout(resolve, 200));
+              }
+            }
+          }
+        }
+
+        // If still no email, check current auth user
+        if (!userEmail) {
           try {
-            const { data: { user }, error: userError } = await supabase.auth.getUser();
-            if (user && user.email) {
-              userEmail = user.email;
-              localStorage.setItem('email', user.email);
-            } else if (userError) {
-              console.warn('Error getting user:', userError);
+            const currentUser = supabase.auth.user;
+            if (currentUser && currentUser.email) {
+              userEmail = currentUser.email;
+              localStorage.setItem('email', userEmail);
+              console.log('Retrieved email from current auth user:', userEmail);
             }
           } catch (e) {
-            console.warn('Error getting user email:', e);
+            console.warn('Could not get email from auth user:', e);
           }
         }
 
         if (!userEmail) {
-          summaryContainer.innerHTML = '<p style="text-align: center; color: var(--text-color); opacity: 0.7;">Error: Could not identify user. Please log out and log back in.</p>';
+          console.error('Could not retrieve user email');
+          summaryContainer.innerHTML = '<p style="text-align: center; color: var(--text-color); opacity: 0.7;">Error: Could not identify user. Please <a href="login.html">log out and log back in</a>.</p>';
           return;
         }
 
         console.log('Loading appointments for:', userEmail);
         
-        // Query appointments directly from Supabase
-        const { data, error } = await supabase
-          .from('appointments')
-          .select('*')
-          .eq('patient_email', userEmail)
-          .order('appointment_date', { ascending: true });
+        // Query appointments directly from Supabase with retry logic
+        let data, error;
+        for (let i = 0; i < 2; i++) {
+          const result = await supabase
+            .from('appointments')
+            .select('*')
+            .eq('patient_email', userEmail)
+            .order('appointment_date', { ascending: true });
+          
+          data = result.data;
+          error = result.error;
+          
+          if (!error) {
+            break;
+          }
+          
+          if (error && i < 1) {
+            console.warn(`Query error (attempt ${i + 1}), retrying...`, error);
+            await new Promise(resolve => setTimeout(resolve, 300));
+            // Refresh session
+            const sessionStr = localStorage.getItem('session');
+            if (sessionStr) {
+              try {
+                const session = JSON.parse(sessionStr);
+                await supabase.auth.setSession(session);
+              } catch (e) {
+                console.warn('Could not refresh session:', e);
+              }
+            }
+          }
+        }
         
         if (error) {
           console.error('Supabase query error:', error);
