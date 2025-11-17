@@ -48,6 +48,11 @@ body {
   position: relative;
   opacity: 0;
   animation: fadeInPage 0.4s ease-in-out forwards;
+  /* Mobile optimizations */
+  -webkit-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  touch-action: pan-y;
 }
 
 @keyframes fadeInPage {
@@ -153,6 +158,15 @@ body.dark::after {
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 1rem;
+  box-sizing: border-box;
+}
+
+/* Mobile container adjustments */
+@media (max-width: 768px) {
+  .container {
+    width: 95%;
+    padding: 0 0.75rem;
+  }
 }
 
 /* ================= NAVBAR ================= */
@@ -461,7 +475,7 @@ body.dark .logout-btn:hover {
 }
 
 .menu-toggle {
-  display: none;
+  display: none; /* Hidden by default, shown on mobile via media query */
   background: rgba(14, 165, 233, 0.15);
   backdrop-filter: blur(10px);
   border: 1px solid rgba(14, 165, 233, 0.3);
@@ -471,13 +485,15 @@ body.dark .logout-btn:hover {
   cursor: pointer;
   font-size: 1.5rem;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  min-width: 44px;
-  min-height: 44px;
+  min-width: 48px;
+  min-height: 48px;
   position: relative;
   overflow: hidden;
   touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(14, 165, 233, 0.2);
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .menu-toggle::before {
@@ -1026,9 +1042,11 @@ footer p, .footer p {
   align-items: center;
   justify-content: center;
   background: var(--gradient-secondary);
-  padding: 2rem;
+  padding: 1rem;
   position: relative;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .auth-container::before {
@@ -1155,6 +1173,73 @@ form h2 {
   margin-bottom: 1.5rem;
 }
 
+/* Password Input Wrapper */
+.password-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-input-wrapper input[type="password"],
+.password-input-wrapper input[type="text"] {
+  padding-right: 3.5rem; /* Make room for toggle button */
+  font-size: 16px !important; /* Prevents zoom on iOS */
+  min-height: 44px; /* Minimum touch target */
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-color);
+  opacity: 0.6;
+  transition: all 0.3s ease;
+  min-width: 44px;
+  min-height: 44px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  z-index: 10;
+}
+
+.password-toggle:hover {
+  opacity: 1;
+  color: var(--primary-color);
+  transform: translateY(-50%) scale(1.1);
+}
+
+.password-toggle:active {
+  transform: translateY(-50%) scale(0.95);
+}
+
+.password-icon {
+  font-size: 1.2rem;
+  user-select: none;
+  pointer-events: none;
+  display: block;
+}
+
+.password-toggle.active .password-icon {
+  opacity: 1;
+}
+
+body.dark .password-toggle {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+body.dark .password-toggle:hover {
+  color: var(--primary-color);
+}
+
 form label {
   display: block;
   margin-bottom: 0.6rem;
@@ -1171,7 +1256,7 @@ form textarea {
   margin-bottom: 0;
   border: 1px solid var(--glass-border);
   border-radius: 12px;
-  font-size: 1rem;
+  font-size: 16px; /* Prevents zoom on iOS - must be at least 16px */
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   background: rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(10px);
@@ -1180,6 +1265,8 @@ form textarea {
   -webkit-appearance: none;
   appearance: none;
   touch-action: manipulation;
+  min-height: 44px; /* Minimum touch target size */
+  box-sizing: border-box;
 }
 
 form input:focus,
@@ -1190,6 +1277,13 @@ form textarea:focus {
   box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2), 0 4px 20px rgba(14, 165, 233, 0.15);
   transform: translateY(-2px);
   background: rgba(255, 255, 255, 0.08);
+  /* Prevent zoom on iOS when focusing */
+  font-size: 16px !important;
+}
+
+/* Prevent zoom on password inputs when toggling visibility */
+.password-input-wrapper input:focus {
+  font-size: 16px !important;
 }
 
 form textarea {
@@ -1212,6 +1306,13 @@ form button {
   box-shadow: var(--shadow);
   position: relative;
   overflow: hidden;
+  min-height: 48px; /* Minimum touch target */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(255, 255, 255, 0.2);
+  -webkit-appearance: none;
+  appearance: none;
+  user-select: none;
+  box-sizing: border-box;
 }
 
 form button:hover {
@@ -1507,21 +1608,51 @@ form button:disabled {
     text-align: center;
   }
 
+  .auth-container {
+    padding: 0.5rem;
+    min-height: 100vh;
+    align-items: flex-start;
+    padding-top: 1rem;
+  }
+
   .auth-wrapper {
     grid-template-columns: 1fr;
+    max-width: 100%;
+    width: 100%;
+    margin: 0;
+    border-radius: 20px;
   }
 
   .auth-image {
-    min-height: 250px;
+    min-height: 200px;
     display: block;
+    order: -1; /* Show image first on mobile */
+  }
+
+  .auth-image-overlay {
+    padding: 1.5rem;
   }
 
   .auth-image-overlay h3 {
-    font-size: 1.8rem;
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
   }
 
   .auth-image-overlay p {
-    font-size: 1rem;
+    font-size: 0.9rem;
+  }
+
+  .auth-box {
+    padding: 2rem 1.5rem;
+    order: 1;
+  }
+
+  .auth-box h2 {
+    font-size: 1.75rem;
+  }
+
+  .auth-box > p {
+    font-size: 0.95rem;
   }
 
   .nav, .navbar {
@@ -1532,11 +1663,14 @@ form button:disabled {
   }
 
   .menu-toggle {
-    display: flex;
+    display: flex !important;
     order: 2;
-    min-width: 44px;
-    min-height: 44px;
+    min-width: 48px;
+    min-height: 48px;
     touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(14, 165, 233, 0.2);
+    align-items: center;
+    justify-content: center;
   }
 
   .nav .logo, .navbar .logo {
@@ -1600,10 +1734,20 @@ form button:disabled {
     width: 100%;
     text-align: center;
     padding: 1rem 1.25rem;
-    min-height: 48px;
+    min-height: 48px; /* Minimum touch target size */
     touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(14, 165, 233, 0.2);
     border-radius: 10px;
     margin: 0.25rem 0;
+    box-sizing: border-box;
+  }
+
+  .nav-links li button,
+  .navbar nav button {
+    min-height: 48px;
+    min-width: 48px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(14, 165, 233, 0.2);
   }
 
   .nav-links li a::after {
@@ -1645,13 +1789,34 @@ form button:disabled {
   form input,
   form select,
   form textarea {
-    font-size: 16px; /* Prevents zoom on iOS */
+    font-size: 16px !important; /* Prevents zoom on iOS - must be at least 16px */
     min-height: 44px;
     touch-action: manipulation;
+    -webkit-appearance: none;
+    appearance: none;
+    padding: 1rem 1.2rem;
+    box-sizing: border-box;
+  }
+
+  .password-toggle {
+    min-width: 44px;
+    min-height: 44px;
+    right: 0.5rem;
+    padding: 0.5rem;
+  }
+
+  .password-input-wrapper input[type="password"],
+  .password-input-wrapper input[type="text"] {
+    padding-right: 3.5rem;
+    font-size: 16px !important;
   }
 
   .auth-box {
-    padding: 2rem;
+    padding: 2rem 1.5rem;
+  }
+
+  .auth-form {
+    width: 100%;
   }
 
   .cards-grid {
@@ -1687,13 +1852,34 @@ form button:disabled {
   .menu-toggle {
     order: 2;
     margin-left: auto;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    min-width: 48px;
+    min-height: 48px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(14, 165, 233, 0.2);
+  }
+
+  .logout-btn {
+    min-height: 48px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(239, 68, 68, 0.2);
+  }
+
+  .theme-toggle {
+    min-width: 48px;
+    min-height: 48px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(14, 165, 233, 0.2);
   }
 }
 
 @media (max-width: 480px) {
   .container {
-    width: 95%;
-    padding: 0 0.5rem;
+    width: 100%;
+    padding: 0 1rem;
+    box-sizing: border-box;
   }
 
   .card,
@@ -1715,17 +1901,34 @@ form button:disabled {
   .btn {
     padding: 1rem 2rem;
     font-size: 1rem;
-    min-height: 44px; /* Minimum touch target size */
+    min-height: 48px; /* Minimum touch target size - larger for better mobile UX */
     touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
   }
 
   /* Improve input sizes for mobile */
   form input,
   form select,
   form textarea {
-    font-size: 16px !important; /* Prevents zoom on iOS */
-    min-height: 44px; /* Minimum touch target */
-    padding: 0.8rem 1rem;
+    font-size: 16px !important; /* Prevents zoom on iOS - critical */
+    min-height: 48px; /* Minimum touch target - larger for better mobile UX */
+    padding: 1rem 1.2rem;
+    box-sizing: border-box;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .password-input-wrapper input[type="password"],
+  .password-input-wrapper input[type="text"] {
+    padding-right: 3.5rem;
+    font-size: 16px !important;
+    min-height: 48px;
+  }
+
+  .password-toggle {
+    min-width: 48px;
+    min-height: 48px;
+    right: 0.5rem;
   }
 
   .hero {
@@ -1752,8 +1955,11 @@ form button:disabled {
   .menu-toggle {
     padding: 0.8rem;
     font-size: 1.8rem;
-    min-width: 44px;
-    min-height: 44px;
+    min-width: 48px;
+    min-height: 48px;
+    display: flex !important;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(14, 165, 233, 0.2);
   }
 
   .welcome-section h2 {

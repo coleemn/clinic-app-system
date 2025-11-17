@@ -647,6 +647,43 @@ function logout() {
   }
 }
 
+// ========== PASSWORD TOGGLE ==========
+function togglePasswordVisibility(inputId, event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  
+  const passwordInput = document.getElementById(inputId);
+  const toggleButton = passwordInput?.parentElement?.querySelector('.password-toggle');
+  const icon = toggleButton?.querySelector('.password-icon');
+  
+  if (!passwordInput || !toggleButton || !icon) return;
+  
+  // Toggle password visibility
+  if (passwordInput.type === 'password') {
+    passwordInput.type = 'text';
+    icon.textContent = '👁️‍🗨️'; // Eye with slash
+    toggleButton.classList.add('active');
+    toggleButton.setAttribute('aria-label', 'Hide password');
+  } else {
+    passwordInput.type = 'password';
+    icon.textContent = '👁️'; // Eye
+    toggleButton.classList.remove('active');
+    toggleButton.setAttribute('aria-label', 'Show password');
+  }
+  
+  // Ensure font size remains 16px to prevent iOS zoom
+  passwordInput.style.fontSize = '16px';
+  
+  // Small delay before refocus to prevent mobile keyboard flicker
+  setTimeout(() => {
+    if (document.activeElement !== passwordInput) {
+      passwordInput.focus();
+    }
+  }, 50);
+}
+
 // ========== THEME TOGGLE ==========
 function toggleTheme() {
   document.body.classList.toggle('dark');
