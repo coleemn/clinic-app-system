@@ -10,7 +10,7 @@ import { dirname, join } from "path";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-
+const PORT = 8080;
 const app = express();
 
 // CORS and JSON parsing - must be first
@@ -443,7 +443,7 @@ app.use((req, res) => {
 });
 
 /* ================= SERVER START ================= */
-const PORT = process.env.PORT || 8080;
+
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📁 Serving static files from: ${__dirname}`);
