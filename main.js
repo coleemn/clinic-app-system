@@ -90,23 +90,55 @@ document.getElementById('loginForm')?.addEventListener('submit', async e => {
       return;
     }
 
-    // Store auth session and user data
-    if (authData.session) {
-      localStorage.setItem('token', authData.session.access_token);
-      localStorage.setItem('refresh_token', authData.session.refresh_token);
-      localStorage.setItem('session', JSON.stringify(authData.session));
+    // Store auth session and user data with verification for mobile
+    try {
+      if (authData.session) {
+        // Set Supabase session first
+        await supabase.auth.setSession(authData.session);
+        
+        // Store in localStorage
+        localStorage.setItem('token', authData.session.access_token);
+        localStorage.setItem('refresh_token', authData.session.refresh_token);
+        localStorage.setItem('session', JSON.stringify(authData.session));
+        
+        // Verify localStorage write on mobile
+        const tokenCheck = localStorage.getItem('token');
+        if (!tokenCheck) {
+          throw new Error('Failed to save session. Please try again.');
+        }
+      }
+      
+      localStorage.setItem('role', userData.role || 'patient');
+      localStorage.setItem('name', userData.name || authData.user.email);
+      localStorage.setItem('email', authData.user.email);
+      localStorage.setItem('user_id', authData.user.id);
+      
+      // Verify email was saved
+      const emailCheck = localStorage.getItem('email');
+      if (!emailCheck) {
+        throw new Error('Failed to save user data. Please try again.');
+      }
+      
+      showMessage(messageEl, 'Login successful! Redirecting to dashboard...', 'success');
+      
+      // Ensure localStorage is committed before redirect (important for mobile)
+      // Use requestAnimationFrame and longer delay for mobile browsers
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Verify token exists before redirecting
+      const finalTokenCheck = localStorage.getItem('token');
+      if (finalTokenCheck) {
+        // Always redirect to dashboard after login
+        location.href = 'dashboard.html';
+      } else {
+        throw new Error('Session not saved. Please try logging in again.');
+      }
+    } catch (storageError) {
+      console.error('Storage error:', storageError);
+      showMessage(messageEl, storageError.message || 'Failed to save session. Please try again.', 'error');
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = 'Login';
     }
-    localStorage.setItem('role', userData.role || 'patient');
-    localStorage.setItem('name', userData.name || authData.user.email);
-    localStorage.setItem('email', authData.user.email);
-    localStorage.setItem('user_id', authData.user.id);
-    
-    showMessage(messageEl, 'Login successful! Redirecting to dashboard...', 'success');
-    
-    // Always redirect to dashboard after login
-    setTimeout(() => {
-      location.href = 'dashboard.html';
-    }, 1000);
   } catch (error) {
     showMessage(messageEl, error.message || 'Network error. Please try again.', 'error');
     submitBtn.disabled = false;
@@ -227,18 +259,27 @@ document.getElementById('registerForm')?.addEventListener('submit', async e => {
     showMessage(messageEl, 'Account created successfully! Redirecting to login...', 'success');
     
     // Clear any existing session (user should log in manually)
-    localStorage.removeItem('token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('session');
-    localStorage.removeItem('role');
-    localStorage.removeItem('name');
-    localStorage.removeItem('email');
-    localStorage.removeItem('user_id');
-    
-    // Redirect to login page after a short delay
-    setTimeout(() => {
+    try {
+      localStorage.removeItem('token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('session');
+      localStorage.removeItem('role');
+      localStorage.removeItem('name');
+      localStorage.removeItem('email');
+      localStorage.removeItem('user_id');
+      
+      // Ensure localStorage is committed before redirect (important for mobile)
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Redirect to login page after a short delay
       location.href = 'login.html';
-    }, 1500);
+    } catch (storageError) {
+      console.error('Storage error:', storageError);
+      // Redirect anyway after delay
+      setTimeout(() => {
+        location.href = 'login.html';
+      }, 1500);
+    }
   } catch (error) {
     showMessage(messageEl, error.message || 'Registration failed. Please try again.', 'error');
     submitBtn.disabled = false;

@@ -82,11 +82,19 @@
     // Load dashboard when page loads and Supabase is ready
     document.addEventListener('DOMContentLoaded', async () => {
       // Wait a bit for Supabase to initialize
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 200));
       
-      // Check if user is logged in
-      const token = localStorage.getItem('token');
+      // Check if user is logged in - with retry for mobile browsers
+      let token = localStorage.getItem('token');
+      
+      // Retry once if token not found (mobile browser timing issue)
       if (!token) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+        token = localStorage.getItem('token');
+      }
+      
+      if (!token) {
+        // Still no token, redirect to login
         location.href = 'login.html';
         return;
       }

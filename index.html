@@ -111,8 +111,17 @@
   <script src="main.js"></script>
   <script>
     // Redirect to login page on site open
-    document.addEventListener('DOMContentLoaded', () => {
-      const token = localStorage.getItem('token');
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Wait a bit for localStorage and Supabase to be ready (mobile browsers)
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      let token = localStorage.getItem('token');
+      
+      // Retry once if token not found (mobile browser timing issue)
+      if (!token) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+        token = localStorage.getItem('token');
+      }
       
       // If user is already logged in, redirect to dashboard
       if (token && supabase) {
@@ -121,19 +130,23 @@
           const sessionStr = localStorage.getItem('session');
           if (sessionStr) {
             const session = JSON.parse(sessionStr);
-            supabase.auth.setSession(session).then(() => {
+            const { error } = await supabase.auth.setSession(session);
+            if (!error) {
               // Session valid, redirect to dashboard
+              // Add small delay to ensure session is set
+              await new Promise(resolve => setTimeout(resolve, 100));
               location.href = 'dashboard.html';
-            }).catch(() => {
+            } else {
               // Session invalid, go to login
               location.href = 'login.html';
-            });
+            }
           } else {
             // No session, go to login
             location.href = 'login.html';
           }
         } catch (e) {
           // Error checking session, go to login
+          console.warn('Error checking session:', e);
           location.href = 'login.html';
         }
       } else {
