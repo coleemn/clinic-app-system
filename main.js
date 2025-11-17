@@ -56,6 +56,16 @@ document.getElementById('loginForm')?.addEventListener('submit', async e => {
   }
 
   try {
+    // Wait for Supabase to be initialized (important for mobile)
+    let retries = 0;
+    while (!supabase && retries < 10) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      if (!supabase) {
+        initSupabase();
+      }
+      retries++;
+    }
+
     if (!supabase) {
       showMessage(messageEl, 'Supabase client not initialized. Please refresh the page.', 'error');
       submitBtn.disabled = false;
@@ -76,18 +86,66 @@ document.getElementById('loginForm')?.addEventListener('submit', async e => {
       return;
     }
 
-    // Get user profile from users table
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', body.email)
-      .single();
-
-    if (userError || !userData) {
-      showMessage(messageEl, 'User profile not found', 'error');
+    if (!authData || !authData.user) {
+      showMessage(messageEl, 'Login failed. Please try again.', 'error');
       submitBtn.disabled = false;
       submitBtn.innerHTML = 'Login';
       return;
+    }
+
+    // Try to get user profile from users table with retry logic for mobile
+    let userData = null;
+    let userError = null;
+    
+    // Retry up to 3 times on mobile (sometimes DB queries need a moment)
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const { data: profileData, error: profileError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', body.email)
+        .single();
+
+      if (!profileError && profileData) {
+        userData = profileData;
+        break;
+      } else {
+        userError = profileError;
+        // Wait a bit before retrying (important for mobile)
+        if (attempt < 2) {
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+      }
+    }
+
+    // If user profile not found in users table, create it from auth user data
+    if (!userData) {
+      console.warn('User profile not found in users table, creating from auth user...');
+      
+      // Try to create user profile in users table
+      const { data: newUserData, error: createError } = await supabase
+        .from('users')
+        .insert([{
+          id: authData.user.id,
+          email: authData.user.email,
+          name: authData.user.user_metadata?.name || authData.user.email?.split('@')[0] || 'User',
+          role: authData.user.user_metadata?.role || 'patient'
+        }])
+        .select()
+        .single();
+
+      if (!createError && newUserData) {
+        userData = newUserData;
+        console.log('✅ User profile created successfully');
+      } else {
+        // If creation fails (e.g., user already exists or other error), use auth user data
+        console.warn('Could not create user profile:', createError?.message);
+        userData = {
+          id: authData.user.id,
+          email: authData.user.email,
+          name: authData.user.user_metadata?.name || authData.user.email?.split('@')[0] || 'User',
+          role: authData.user.user_metadata?.role || 'patient'
+        };
+      }
     }
 
     // Store auth session and user data with verification for mobile
@@ -96,13 +154,24 @@ document.getElementById('loginForm')?.addEventListener('submit', async e => {
         // Set Supabase session first
         await supabase.auth.setSession(authData.session);
         
+        // Small delay to ensure session is set
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         // Store in localStorage
         localStorage.setItem('token', authData.session.access_token);
         localStorage.setItem('refresh_token', authData.session.refresh_token);
         localStorage.setItem('session', JSON.stringify(authData.session));
         
-        // Verify localStorage write on mobile
-        const tokenCheck = localStorage.getItem('token');
+        // Verify localStorage write on mobile (with retry)
+        let tokenCheck = localStorage.getItem('token');
+        let checkRetries = 0;
+        while (!tokenCheck && checkRetries < 5) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+          localStorage.setItem('token', authData.session.access_token);
+          tokenCheck = localStorage.getItem('token');
+          checkRetries++;
+        }
+        
         if (!tokenCheck) {
           throw new Error('Failed to save session. Please try again.');
         }
@@ -113,8 +182,16 @@ document.getElementById('loginForm')?.addEventListener('submit', async e => {
       localStorage.setItem('email', authData.user.email);
       localStorage.setItem('user_id', authData.user.id);
       
-      // Verify email was saved
-      const emailCheck = localStorage.getItem('email');
+      // Verify email was saved (with retry)
+      let emailCheck = localStorage.getItem('email');
+      let emailRetries = 0;
+      while (!emailCheck && emailRetries < 5) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        localStorage.setItem('email', authData.user.email);
+        emailCheck = localStorage.getItem('email');
+        emailRetries++;
+      }
+      
       if (!emailCheck) {
         throw new Error('Failed to save user data. Please try again.');
       }
@@ -122,8 +199,7 @@ document.getElementById('loginForm')?.addEventListener('submit', async e => {
       showMessage(messageEl, 'Login successful! Redirecting to dashboard...', 'success');
       
       // Ensure localStorage is committed before redirect (important for mobile)
-      // Use requestAnimationFrame and longer delay for mobile browsers
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise(resolve => setTimeout(resolve, 400));
       
       // Verify token exists before redirecting
       const finalTokenCheck = localStorage.getItem('token');
@@ -140,6 +216,7 @@ document.getElementById('loginForm')?.addEventListener('submit', async e => {
       submitBtn.innerHTML = 'Login';
     }
   } catch (error) {
+    console.error('Login error:', error);
     showMessage(messageEl, error.message || 'Network error. Please try again.', 'error');
     submitBtn.disabled = false;
     submitBtn.innerHTML = 'Login';
@@ -179,6 +256,16 @@ document.getElementById('registerForm')?.addEventListener('submit', async e => {
   }
 
   try {
+    // Wait for Supabase to be initialized (important for mobile)
+    let retries = 0;
+    while (!supabase && retries < 10) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      if (!supabase) {
+        initSupabase();
+      }
+      retries++;
+    }
+
     if (!supabase) {
       showMessage(messageEl, 'Supabase client not initialized. Please refresh the page.', 'error');
       submitBtn.disabled = false;
@@ -205,61 +292,95 @@ document.getElementById('registerForm')?.addEventListener('submit', async e => {
       return;
     }
 
-    // Create user profile in users table (optional - auth user is already created)
-    let userData;
-    const { data: insertedUser, error: userError } = await supabase
-      .from('users')
-      .insert([{
+    if (!authData || !authData.user) {
+      showMessage(messageEl, 'Registration failed. Please try again.', 'error');
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = 'Sign Up';
+      return;
+    }
+
+    // Create user profile in users table with retry logic for mobile
+    let userData = null;
+    let userError = null;
+    
+    // Retry up to 3 times (important for mobile browsers)
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const { data: insertedUser, error: insertError } = await supabase
+        .from('users')
+        .insert([{
+          id: authData.user.id,
+          email: body.email,
+          name: body.name,
+          role: body.role || 'patient'
+        }])
+        .select()
+        .single();
+
+      if (!insertError && insertedUser) {
+        userData = insertedUser;
+        console.log('✅ User profile created successfully in users table');
+        break;
+      } else {
+        userError = insertError;
+        // If user already exists, try to fetch it
+        if (insertError && (insertError.code === '23505' || insertError.message?.includes('duplicate') || insertError.message?.includes('unique'))) {
+          console.log('User already exists, fetching existing profile...');
+          const { data: existingUser } = await supabase
+            .from('users')
+            .select('*')
+            .eq('email', body.email)
+            .single();
+          
+          if (existingUser) {
+            userData = existingUser;
+            console.log('✅ Found existing user profile');
+            break;
+          }
+        }
+        
+        // Wait before retrying (important for mobile)
+        if (attempt < 2) {
+          await new Promise(resolve => setTimeout(resolve, 400));
+        }
+      }
+    }
+
+    // If still no userData, create minimal object from auth user
+    if (!userData) {
+      console.warn('Could not create/fetch user profile in users table, using auth user data');
+      if (userError) {
+        console.warn('User error:', userError.message);
+      }
+      
+      userData = {
         id: authData.user.id,
         email: body.email,
         name: body.name,
         role: body.role || 'patient'
-      }])
-      .select()
-      .single();
-
-    if (userError) {
-      // If user already exists in auth but not in users table, try to get it
-      const { data: existingUser } = await supabase
+      };
+      
+      // Try one more time to verify the user was created
+      const { data: verifyUser } = await supabase
         .from('users')
         .select('*')
         .eq('email', body.email)
         .single();
       
-      if (existingUser) {
-        userData = existingUser;
-      } else {
-        // If users table has password column (shouldn't exist), skip it and proceed with auth user
-        if (userError.message && userError.message.includes('password')) {
-          console.warn('Users table has password column - should remove it. Password is handled by Supabase Auth.');
-          // Create a minimal userData object from auth user
-          userData = {
-            id: authData.user.id,
-            email: body.email,
-            name: body.name,
-            role: body.role || 'patient'
-          };
-        } else {
-          // Other errors - show message but still allow login with auth user
-          console.warn('Could not create user profile:', userError.message);
-          // Create minimal userData from auth user
-          userData = {
-            id: authData.user.id,
-            email: body.email,
-            name: body.name,
-            role: body.role || 'patient'
-          };
-        }
+      if (verifyUser) {
+        userData = verifyUser;
+        console.log('✅ Verified user profile exists');
       }
-    } else {
-      userData = insertedUser;
     }
 
-    // Account created successfully - redirect to login page
+    // Account created successfully - show success message
     showMessage(messageEl, 'Account created successfully! Redirecting to login...', 'success');
     
     // Clear any existing session (user should log in manually)
     try {
+      // Sign out to clear any session
+      await supabase.auth.signOut();
+      
+      // Clear localStorage
       localStorage.removeItem('token');
       localStorage.removeItem('refresh_token');
       localStorage.removeItem('session');
@@ -268,8 +389,16 @@ document.getElementById('registerForm')?.addEventListener('submit', async e => {
       localStorage.removeItem('email');
       localStorage.removeItem('user_id');
       
+      // Verify localStorage is cleared (with retry for mobile)
+      let checkRetries = 0;
+      while (localStorage.getItem('token') && checkRetries < 5) {
+        localStorage.removeItem('token');
+        await new Promise(resolve => setTimeout(resolve, 100));
+        checkRetries++;
+      }
+      
       // Ensure localStorage is committed before redirect (important for mobile)
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       // Redirect to login page after a short delay
       location.href = 'login.html';
@@ -281,6 +410,7 @@ document.getElementById('registerForm')?.addEventListener('submit', async e => {
       }, 1500);
     }
   } catch (error) {
+    console.error('Registration error:', error);
     showMessage(messageEl, error.message || 'Registration failed. Please try again.', 'error');
     submitBtn.disabled = false;
     submitBtn.innerHTML = 'Sign Up';
