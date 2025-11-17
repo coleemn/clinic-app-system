@@ -31,6 +31,7 @@ A modern clinic appointment management system built with Supabase as the backend
 
 ```sql
 -- Users table (optional, can use Supabase Auth metadata)
+-- IMPORTANT: Do NOT include a password column - passwords are handled by Supabase Auth
 CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT NOT NULL UNIQUE,
@@ -38,6 +39,9 @@ CREATE TABLE IF NOT EXISTS users (
   role TEXT NOT NULL DEFAULT 'patient',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- If your users table already has a password column, remove it:
+-- ALTER TABLE users DROP COLUMN IF EXISTS password;
 
 -- Appointments table
 CREATE TABLE IF NOT EXISTS appointments (
@@ -73,7 +77,7 @@ CREATE POLICY "Authenticated users can insert appointments"
 CREATE POLICY "Physicians can view pending appointments"
   ON appointments FOR SELECT
   USING (
-    status = 'Pending' 
+    status = 'Pending'
     OR patient_email = auth.jwt() ->> 'email'
   );
 ```
@@ -177,9 +181,7 @@ clinic-app-system/
 - ⚠️ **Security**: The Supabase Anon Key is exposed in the frontend. This is expected for public apps, but make sure to:
   - Set up Row Level Security (RLS) policies in Supabase
   - Never use the Service Role Key in frontend code
-  
 - 📦 **Node Modules**: Not needed for GitHub Pages since Supabase is loaded via CDN
-  
 - 🚀 **Server.js**: Not needed for GitHub Pages deployment. It's only useful for local development or if you need server-side email/SMS functionality.
 
 ## Custom Domain (Optional)
@@ -193,10 +195,10 @@ To use a custom domain:
 ## Support
 
 For issues or questions:
+
 - Check Supabase documentation: https://supabase.com/docs
 - GitHub Pages documentation: https://docs.github.com/en/pages
 
 ## License
 
 ISC
-

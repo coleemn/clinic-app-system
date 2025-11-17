@@ -32,6 +32,11 @@ body {
   scroll-behavior: smooth;
   transition: background 0.3s ease, color 0.3s ease;
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  /* Improve touch scrolling on mobile */
+  -webkit-overflow-scrolling: touch;
 }
 
 body.dark {
@@ -255,6 +260,12 @@ body.dark .hero {
   overflow: hidden;
   text-align: center;
   box-shadow: var(--shadow);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+  user-select: none;
+  /* Minimum touch target size for accessibility */
+  min-height: 44px;
+  min-width: 44px;
 }
 
 .btn::before {
@@ -767,6 +778,9 @@ form textarea {
   background: var(--card-bg);
   color: var(--text-color);
   font-family: inherit;
+  -webkit-appearance: none; /* Remove iOS default styling */
+  appearance: none;
+  touch-action: manipulation;
 }
 
 form input:focus,
@@ -1113,11 +1127,15 @@ form button:disabled {
   .nav, .navbar {
     flex-wrap: wrap;
     position: relative;
+    padding: 1rem 0;
   }
 
   .menu-toggle {
     display: block;
     order: 2;
+    min-width: 44px;
+    min-height: 44px;
+    touch-action: manipulation;
   }
 
   .nav .logo, .navbar .logo {
@@ -1143,6 +1161,12 @@ form button:disabled {
     border-radius: 0 0 15px 15px;
     max-height: 0;
     overflow: hidden;
+    width: 100%;
+  }
+
+  body.dark .nav-links,
+  body.dark .navbar nav {
+    background: linear-gradient(135deg, rgba(26, 35, 50, 0.98) 0%, rgba(45, 55, 72, 0.98) 100%);
   }
 
   .nav-links.active,
@@ -1154,7 +1178,7 @@ form button:disabled {
   }
 
   .nav-links li,
-  .navbar nav a {
+  .navbar nav li {
     width: 100%;
   }
 
@@ -1164,6 +1188,8 @@ form button:disabled {
     width: 100%;
     text-align: center;
     padding: 1rem;
+    min-height: 44px; /* Minimum touch target */
+    touch-action: manipulation;
   }
 
   .hero h2 {
@@ -1185,6 +1211,15 @@ form button:disabled {
     margin: 2rem auto;
   }
 
+  /* Improve form inputs for mobile */
+  form input,
+  form select,
+  form textarea {
+    font-size: 16px; /* Prevents zoom on iOS */
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+
   .auth-box {
     padding: 2rem;
   }
@@ -1196,6 +1231,19 @@ form button:disabled {
   #appointments,
   #queue {
     grid-template-columns: 1fr;
+  }
+
+  /* Improve button sizes for touch */
+  .btn {
+    min-height: 44px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+  }
+
+  .theme-toggle {
+    min-width: 44px;
+    min-height: 44px;
+    touch-action: manipulation;
   }
 }
 
@@ -1222,8 +1270,19 @@ form button:disabled {
   }
 
   .btn {
-    padding: 0.9rem 2rem;
-    font-size: 0.95rem;
+    padding: 1rem 2rem;
+    font-size: 1rem;
+    min-height: 44px; /* Minimum touch target size */
+    touch-action: manipulation;
+  }
+
+  /* Improve input sizes for mobile */
+  form input,
+  form select,
+  form textarea {
+    font-size: 16px !important; /* Prevents zoom on iOS */
+    min-height: 44px; /* Minimum touch target */
+    padding: 0.8rem 1rem;
   }
 
   .hero {
@@ -1233,6 +1292,41 @@ form button:disabled {
   .hero.small {
     min-height: 30vh;
     padding: 2rem 0;
+  }
+
+  .hero h2 {
+    font-size: 2rem;
+  }
+
+  .hero p {
+    font-size: 1rem;
+  }
+
+  .nav .logo, .navbar .logo {
+    font-size: 1.5rem;
+  }
+
+  .menu-toggle {
+    padding: 0.8rem;
+    font-size: 1.8rem;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .welcome-section h2 {
+    font-size: 2rem;
+  }
+
+  .dashboard h2 {
+    font-size: 2rem;
+  }
+
+  .auth-image-overlay h3 {
+    font-size: 1.5rem;
+  }
+
+  .auth-box h2 {
+    font-size: 1.8rem;
   }
 }
 

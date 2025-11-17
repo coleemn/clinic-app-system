@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
   <title>MediConnect |  Online Clinic Appointment</title>
   <link rel="stylesheet" href="style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -109,6 +109,39 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="main.js"></script>
+  <script>
+    // Redirect to login page on site open
+    document.addEventListener('DOMContentLoaded', () => {
+      const token = localStorage.getItem('token');
+      
+      // If user is already logged in, redirect to dashboard
+      if (token && supabase) {
+        try {
+          // Check if session is still valid
+          const sessionStr = localStorage.getItem('session');
+          if (sessionStr) {
+            const session = JSON.parse(sessionStr);
+            supabase.auth.setSession(session).then(() => {
+              // Session valid, redirect to dashboard
+              location.href = 'dashboard.html';
+            }).catch(() => {
+              // Session invalid, go to login
+              location.href = 'login.html';
+            });
+          } else {
+            // No session, go to login
+            location.href = 'login.html';
+          }
+        } catch (e) {
+          // Error checking session, go to login
+          location.href = 'login.html';
+        }
+      } else {
+        // Not logged in, redirect to login page
+        location.href = 'login.html';
+      }
+    });
+  </script>
 </body>
 </html>
 

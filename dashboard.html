@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
   <title>Clinic Dashboard</title>
   <link rel="stylesheet" href="style.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -79,14 +79,32 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="main.js"></script>
   <script>
-    // Load dashboard when page loads
-    if (typeof loadDashboard === 'function') {
-      loadDashboard();
-    } else {
-      window.addEventListener('DOMContentLoaded', () => {
-        if (typeof loadDashboard === 'function') loadDashboard();
-      });
-    }
+    // Load dashboard when page loads and Supabase is ready
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Wait a bit for Supabase to initialize
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Check if user is logged in
+      const token = localStorage.getItem('token');
+      if (!token) {
+        location.href = 'login.html';
+        return;
+      }
+      
+      // Try to load dashboard
+      if (typeof loadDashboard === 'function') {
+        await loadDashboard();
+      } else {
+        // Wait a bit more if function not ready
+        setTimeout(async () => {
+          if (typeof loadDashboard === 'function') {
+            await loadDashboard();
+          } else {
+            console.error('loadDashboard function not found');
+          }
+        }, 500);
+      }
+    });
   </script>
 </body>
 </html>

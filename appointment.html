@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
   <title>My Appointments | MediConnect</title>
   <link rel="stylesheet" href="style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -54,86 +54,117 @@
   <script>
     document.addEventListener("DOMContentLoaded", async () => {
       const summaryContainer = document.getElementById("appointmentSummary");
-      const token = localStorage.getItem('token');
-      const userEmail = localStorage.getItem('email');
-      
-      if (token && supabase && userEmail) {
-        // Try to load from Supabase
-        try {
-          // Set auth session for Supabase client if available
-          const sessionStr = localStorage.getItem('session');
-          if (token && sessionStr) {
-            try {
-              const session = JSON.parse(sessionStr);
-              await supabase.auth.setSession(session);
-            } catch (e) {
-              console.warn('Could not restore session, using token only');
+      if (!summaryContainer) return;
+
+      // Wait for Supabase to be initialized
+      if (!supabase) {
+        await new Promise(resolve => {
+          const checkSupabase = setInterval(() => {
+            if (supabase) {
+              clearInterval(checkSupabase);
+              resolve();
             }
-          }
-          
-          // Query appointments directly from Supabase
-          const { data, error } = await supabase
-            .from('appointments')
-            .select('*')
-            .eq('patient_email', userEmail)
-            .order('appointment_date', { ascending: true });
-          
-          if (error) throw error;
-          
-          if (data && data.length > 0) {
-            summaryContainer.innerHTML = '<h2>Your Appointments</h2>';
-            data.forEach(a => {
-              const card = document.createElement('div');
-              card.className = 'appointment-card';
-              card.innerHTML = `
-                <h3>${a.specialty || a.reason || 'Pending Triage'}</h3>
-                <p><strong>Doctor:</strong> ${a.doctor_name || 'Not Assigned'}</p>
-                <p><strong>Date:</strong> ${a.appointment_date ? new Date(a.appointment_date).toLocaleString() : 'To be scheduled'}</p>
-                <p><strong>Status:</strong> <span class="status-badge status-${a.status ? a.status.toLowerCase() : 'pending'}">${a.status || 'Pending'}</span></p>
-                ${a.notes ? `<p><strong>Notes:</strong> ${a.notes}</p>` : ''}
-              `;
-              summaryContainer.appendChild(card);
-            });
-          } else {
-            summaryContainer.innerHTML = `
-              <h2>No Appointments Found</h2>
-              <p>You don't have any appointments yet. <a href="booking.html">Book your first appointment</a>.</p>
-            `;
-          }
-        } catch (err) {
-          console.error('Error loading appointments:', err);
-          // Fallback to localStorage
-          const appointment = JSON.parse(localStorage.getItem("lastAppointment") || 'null');
-          if (appointment) {
-            summaryContainer.innerHTML = `
-              <h2>✅ Appointment Confirmed</h2>
-              <p><strong>Patient Name:</strong> ${appointment.patientName}</p>
-              <p><strong>Doctor:</strong> ${appointment.doctorName}</p>
-              <p><strong>Date & Time:</strong> ${new Date(appointment.appointmentDate).toLocaleString()}</p>
-            `;
-          } else {
-            summaryContainer.innerHTML = `
-              <h2>No Recent Appointment</h2>
-              <p>No recent appointment found. Please <a href="booking.html">book a new appointment</a>.</p>
-            `;
+          }, 100);
+          // Timeout after 5 seconds
+          setTimeout(() => {
+            clearInterval(checkSupabase);
+            resolve();
+          }, 5000);
+        });
+      }
+
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        location.href = 'login.html';
+        return;
+      }
+
+      if (!supabase) {
+        console.error('Supabase client not initialized');
+        summaryContainer.innerHTML = '<p style="text-align: center; color: var(--text-color); opacity: 0.7;">Error: Supabase not loaded. Please refresh the page.</p>';
+        return;
+      }
+
+      try {
+        // Set auth session for Supabase client if available
+        const sessionStr = localStorage.getItem('session');
+        if (token && sessionStr) {
+          try {
+            const session = JSON.parse(sessionStr);
+            const { error: sessionError } = await supabase.auth.setSession(session);
+            if (sessionError) {
+              console.warn('Session error:', sessionError);
+            }
+          } catch (e) {
+            console.warn('Could not restore session:', e);
           }
         }
-      } else {
-        // No token, check localStorage
-        const appointment = JSON.parse(localStorage.getItem("lastAppointment") || 'null');
-        if (appointment) {
-          summaryContainer.innerHTML = `
-            <h2>✅ Appointment Confirmed</h2>
-            <p><strong>Patient Name:</strong> ${appointment.patientName}</p>
-            <p><strong>Doctor:</strong> ${appointment.doctorName}</p>
-            <p><strong>Date & Time:</strong> ${new Date(appointment.appointmentDate).toLocaleString()}</p>
-          `;
+
+        // Get user email - try multiple sources
+        let userEmail = localStorage.getItem('email');
+        
+        if (!userEmail) {
+          // Try to get from Supabase auth
+          try {
+            const { data: { user }, error: userError } = await supabase.auth.getUser();
+            if (user && user.email) {
+              userEmail = user.email;
+              localStorage.setItem('email', user.email);
+            } else if (userError) {
+              console.warn('Error getting user:', userError);
+            }
+          } catch (e) {
+            console.warn('Error getting user email:', e);
+          }
+        }
+
+        if (!userEmail) {
+          summaryContainer.innerHTML = '<p style="text-align: center; color: var(--text-color); opacity: 0.7;">Error: Could not identify user. Please log out and log back in.</p>';
+          return;
+        }
+
+        console.log('Loading appointments for:', userEmail);
+        
+        // Query appointments directly from Supabase
+        const { data, error } = await supabase
+          .from('appointments')
+          .select('*')
+          .eq('patient_email', userEmail)
+          .order('appointment_date', { ascending: true });
+        
+        if (error) {
+          console.error('Supabase query error:', error);
+          throw error;
+        }
+        
+        if (data && data.length > 0) {
+          console.log('Loaded appointments:', data.length);
+          summaryContainer.innerHTML = '<h2>Your Appointments</h2>';
+          data.forEach((a, index) => {
+            const card = document.createElement('div');
+            card.className = 'appointment-card slide-up';
+            card.style.animationDelay = `${index * 0.1}s`;
+            const statusClass = a.status ? `status-${a.status.toLowerCase()}` : 'status-pending';
+            card.innerHTML = `
+              <h3>${a.specialty || a.reason || 'Pending Triage'}</h3>
+              <p><strong>Doctor:</strong> ${a.doctor_name || 'Not Assigned'}</p>
+              <p><strong>Date:</strong> ${a.appointment_date ? new Date(a.appointment_date).toLocaleString() : 'To be scheduled'}</p>
+              <p><strong>Status:</strong> <span class="status-badge status-${statusClass}">${a.status || 'Pending'}</span></p>
+              ${a.notes ? `<p><strong>Notes:</strong> ${a.notes}</p>` : ''}
+            `;
+            summaryContainer.appendChild(card);
+          });
         } else {
           summaryContainer.innerHTML = `
-            <h2>No Recent Appointment</h2>
-            <p>No recent appointment found. Please <a href="booking.html">book a new appointment</a>.</p>
+            <h2>No Appointments Found</h2>
+            <p>You don't have any appointments yet. <a href="booking.html">Book your first appointment</a>.</p>
           `;
         }
+      } catch (err) {
+        console.error('Error loading appointments:', err);
+        const errorMsg = err.message || 'Unknown error';
+        summaryContainer.innerHTML = `<p style="text-align: center; color: #ef4444; opacity: 0.9;">Error loading appointments: ${errorMsg}. Please try refreshing the page.</p>`;
       }
     });
   </script>

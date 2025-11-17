@@ -101,11 +101,11 @@ document.getElementById('loginForm')?.addEventListener('submit', async e => {
     localStorage.setItem('email', authData.user.email);
     localStorage.setItem('user_id', authData.user.id);
     
-    showMessage(messageEl, 'Login successful! Redirecting...', 'success');
+    showMessage(messageEl, 'Login successful! Redirecting to dashboard...', 'success');
     
+    // Always redirect to dashboard after login
     setTimeout(() => {
-      if (userData.role === 'physician') location.href = 'triage.html';
-      else location.href = 'dashboard.html';
+      location.href = 'dashboard.html';
     }, 1000);
   } catch (error) {
     showMessage(messageEl, error.message || 'Network error. Please try again.', 'error');
@@ -173,7 +173,7 @@ document.getElementById('registerForm')?.addEventListener('submit', async e => {
       return;
     }
 
-    // Create user profile in users table
+    // Create user profile in users table (optional - auth user is already created)
     let userData;
     const { data: insertedUser, error: userError } = await supabase
       .from('users')
@@ -197,38 +197,48 @@ document.getElementById('registerForm')?.addEventListener('submit', async e => {
       if (existingUser) {
         userData = existingUser;
       } else {
-        showMessage(messageEl, userError.message || 'Failed to create user profile', 'error');
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = 'Sign Up';
-        return;
+        // If users table has password column (shouldn't exist), skip it and proceed with auth user
+        if (userError.message && userError.message.includes('password')) {
+          console.warn('Users table has password column - should remove it. Password is handled by Supabase Auth.');
+          // Create a minimal userData object from auth user
+          userData = {
+            id: authData.user.id,
+            email: body.email,
+            name: body.name,
+            role: body.role || 'patient'
+          };
+        } else {
+          // Other errors - show message but still allow login with auth user
+          console.warn('Could not create user profile:', userError.message);
+          // Create minimal userData from auth user
+          userData = {
+            id: authData.user.id,
+            email: body.email,
+            name: body.name,
+            role: body.role || 'patient'
+          };
+        }
       }
     } else {
       userData = insertedUser;
     }
 
-    // Store auth session and user data
-    if (authData.session) {
-      localStorage.setItem('token', authData.session.access_token);
-      localStorage.setItem('refresh_token', authData.session.refresh_token);
-      localStorage.setItem('session', JSON.stringify(authData.session));
-    }
-    localStorage.setItem('role', userData.role || 'patient');
-    localStorage.setItem('name', userData.name || body.name);
-    localStorage.setItem('email', authData.user.email);
-    localStorage.setItem('user_id', authData.user.id);
-      
-      showMessage(messageEl, 'Account created successfully! Redirecting...', 'success');
-      
-      setTimeout(() => {
-        if (userData.role === 'physician') location.href = 'triage.html';
-        else location.href = 'dashboard.html';
-      }, 1000);
-    } else {
-      // Email confirmation required
-      showMessage(messageEl, 'Account created! Please check your email to confirm your account.', 'success');
-      submitBtn.disabled = false;
-      submitBtn.innerHTML = 'Sign Up';
-    }
+    // Account created successfully - redirect to login page
+    showMessage(messageEl, 'Account created successfully! Redirecting to login...', 'success');
+    
+    // Clear any existing session (user should log in manually)
+    localStorage.removeItem('token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('session');
+    localStorage.removeItem('role');
+    localStorage.removeItem('name');
+    localStorage.removeItem('email');
+    localStorage.removeItem('user_id');
+    
+    // Redirect to login page after a short delay
+    setTimeout(() => {
+      location.href = 'login.html';
+    }, 1500);
   } catch (error) {
     showMessage(messageEl, error.message || 'Registration failed. Please try again.', 'error');
     submitBtn.disabled = false;
@@ -262,12 +272,37 @@ function showMessage(element, message, type = 'info') {
 
 /* ========== DASHBOARD (PATIENT) ========== */
 async function loadDashboard() {
+  // Wait for Supabase to be initialized
+  if (!supabase) {
+    await new Promise(resolve => {
+      const checkSupabase = setInterval(() => {
+        if (supabase) {
+          clearInterval(checkSupabase);
+          resolve();
+        }
+      }, 100);
+      // Timeout after 5 seconds
+      setTimeout(() => {
+        clearInterval(checkSupabase);
+        resolve();
+      }, 5000);
+    });
+  }
+
   const token = localStorage.getItem('token');
   const name = localStorage.getItem('name');
-  const userEmail = localStorage.getItem('email') || (await getCurrentUserEmail());
   
-  if (!token || !supabase) {
-    if (!token) location.href = 'login.html';
+  if (!token) {
+    location.href = 'login.html';
+    return;
+  }
+
+  if (!supabase) {
+    console.error('Supabase client not initialized');
+    const appointmentsEl = document.getElementById('appointments');
+    if (appointmentsEl) {
+      appointmentsEl.innerHTML = '<p style="text-align: center; color: var(--text-color); opacity: 0.7;">Error: Supabase not loaded. Please refresh the page.</p>';
+    }
     return;
   }
 
@@ -275,7 +310,10 @@ async function loadDashboard() {
   if (userNameEl) userNameEl.innerText = name || 'Patient';
   
   const appointmentsEl = document.getElementById('appointments');
-  if (!appointmentsEl) return;
+  if (!appointmentsEl) {
+    console.warn('Appointments element not found');
+    return;
+  }
 
   try {
     // Set auth session for Supabase client if available
@@ -283,11 +321,40 @@ async function loadDashboard() {
     if (token && sessionStr) {
       try {
         const session = JSON.parse(sessionStr);
-        await supabase.auth.setSession(session);
+        const { error: sessionError } = await supabase.auth.setSession(session);
+        if (sessionError) {
+          console.warn('Session error:', sessionError);
+          // Try to get user email directly
+        }
       } catch (e) {
-        console.warn('Could not restore session, using token only');
+        console.warn('Could not restore session:', e);
       }
     }
+
+    // Get user email - try multiple sources
+    let userEmail = localStorage.getItem('email');
+    
+    if (!userEmail) {
+      // Try to get from Supabase auth
+      try {
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (user && user.email) {
+          userEmail = user.email;
+          localStorage.setItem('email', user.email);
+        } else if (userError) {
+          console.warn('Error getting user:', userError);
+        }
+      } catch (e) {
+        console.warn('Error getting user email:', e);
+      }
+    }
+
+    if (!userEmail) {
+      appointmentsEl.innerHTML = '<p style="text-align: center; color: var(--text-color); opacity: 0.7;">Error: Could not identify user. Please log out and log back in.</p>';
+      return;
+    }
+
+    console.log('Loading appointments for:', userEmail);
     
     // Query appointments directly from Supabase
     const { data, error } = await supabase
@@ -296,7 +363,10 @@ async function loadDashboard() {
       .eq('patient_email', userEmail)
       .order('appointment_date', { ascending: true });
     
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase query error:', error);
+      throw error;
+    }
     
     appointmentsEl.innerHTML = '';
     
@@ -304,6 +374,8 @@ async function loadDashboard() {
       appointmentsEl.innerHTML = '<p style="text-align: center; color: var(--text-color); opacity: 0.7;">No appointments yet. <a href="booking.html">Book your first appointment</a></p>';
       return;
     }
+
+    console.log('Loaded appointments:', data.length);
     
     data.forEach((a, index) => {
       const card = document.createElement('div');
@@ -321,7 +393,8 @@ async function loadDashboard() {
     });
   } catch (error) {
     console.error('Error loading dashboard:', error);
-    appointmentsEl.innerHTML = '<p style="text-align: center; color: var(--text-color); opacity: 0.7;">Error loading appointments. Please try again later.</p>';
+    const errorMsg = error.message || 'Unknown error';
+    appointmentsEl.innerHTML = `<p style="text-align: center; color: #ef4444; opacity: 0.9;">Error loading appointments: ${errorMsg}. Please try refreshing the page.</p>`;
   }
 }
 
@@ -828,3 +901,4 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 });
+
