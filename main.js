@@ -832,13 +832,52 @@ function toggleTheme() {
 function toggleMobileMenu() {
   const navLinks = document.querySelector('.nav-links');
   const menuToggle = document.querySelector('.menu-toggle');
+  const body = document.body;
+  
   if (navLinks) {
+    const isActive = navLinks.classList.contains('active');
     navLinks.classList.toggle('active');
+    const nowActive = navLinks.classList.contains('active');
+    
     // Update toggle button state
     if (menuToggle) {
-      menuToggle.classList.toggle('active');
-      menuToggle.setAttribute('aria-expanded', navLinks.classList.contains('active') ? 'true' : 'false');
+      menuToggle.classList.toggle('active', nowActive);
+      menuToggle.setAttribute('aria-expanded', nowActive ? 'true' : 'false');
     }
+    
+    // Add/remove body class for overlay
+    if (nowActive) {
+      body.classList.add('menu-open');
+      // Prevent body scroll when menu is open
+      body.style.overflow = 'hidden';
+    } else {
+      body.classList.remove('menu-open');
+      body.style.overflow = '';
+    }
+    
+    // Save menu state to localStorage (though we'll always reset to closed on page load)
+    localStorage.setItem('menuOpen', nowActive ? 'true' : 'false');
+  }
+}
+
+// Function to reset menu to initial closed state
+function resetMenuToInitialState() {
+  const navLinks = document.querySelector('.nav-links');
+  const menuToggle = document.querySelector('.menu-toggle');
+  const body = document.body;
+  
+  if (navLinks) {
+    navLinks.classList.remove('active');
+    body.classList.remove('menu-open');
+    body.style.overflow = '';
+    
+    if (menuToggle) {
+      menuToggle.classList.remove('active');
+      menuToggle.setAttribute('aria-expanded', 'false');
+    }
+    
+    // Clear saved state to ensure fresh start
+    localStorage.removeItem('menuOpen');
   }
 }
 
@@ -862,12 +901,15 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
   
+  // Reset menu to initial closed state on page load
+  resetMenuToInitialState();
+  
   // Add mobile menu toggle button
   const nav = document.querySelector('.nav, .navbar');
   if (nav && !document.querySelector('.menu-toggle')) {
     const menuToggle = document.createElement('button');
     menuToggle.className = 'menu-toggle';
-    menuToggle.innerHTML = ''; // Empty - using CSS for hamburger icon
+    menuToggle.innerHTML = '<span class="hamburger-middle"></span><span class="ripple"></span>'; // Middle line and ripple effect
     menuToggle.setAttribute('aria-label', 'Toggle menu');
     menuToggle.setAttribute('aria-expanded', 'false');
     menuToggle.onclick = (e) => {
@@ -882,14 +924,31 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   }
   
+  // Ensure menu is closed after a short delay (in case of any race conditions)
+  setTimeout(() => {
+    resetMenuToInitialState();
+  }, 100);
+  
+  // Reset menu when page becomes visible (tab switching, etc.)
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      resetMenuToInitialState();
+    }
+  });
+  
+  // Reset menu on page focus (when user returns to the tab)
+  window.addEventListener('focus', () => {
+    resetMenuToInitialState();
+  });
+  
   // Handle window resize
   let resizeTimer;
   window.addEventListener('resize', () => {
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(() => {
       if (window.innerWidth > 768) {
-        const navLinks = document.querySelector('.nav-links');
-        if (navLinks) navLinks.classList.remove('active');
+        // Close menu when switching to desktop view
+        resetMenuToInitialState();
       }
     }, 250);
   });
@@ -904,44 +963,96 @@ window.addEventListener('DOMContentLoaded', () => {
     loadTriageQueue();
   }
   
-  // Close mobile menu when clicking outside
+  // Close mobile menu when clicking outside or on overlay
   document.addEventListener('click', (e) => {
     const navLinks = document.querySelector('.nav-links');
     const menuToggle = document.querySelector('.menu-toggle');
-    if (navLinks && menuToggle && !navLinks.contains(e.target) && !menuToggle.contains(e.target)) {
-      navLinks.classList.remove('active');
+    if (navLinks && navLinks.classList.contains('active')) {
+      // Close if clicking outside menu and toggle button
+      if (!navLinks.contains(e.target) && !menuToggle.contains(e.target)) {
+        resetMenuToInitialState();
+      }
     }
   });
-
-  // Add smooth page transitions to navigation links
-  const navLinks = document.querySelectorAll('.nav-links a:not([href^="#"])');
-  navLinks.forEach(link => {
-    link.addEventListener('click', function(e) {
-      const href = this.getAttribute('href');
-      
-      // Only add transition if it's an internal link and not the same page
-      if (href && !href.startsWith('http') && !href.startsWith('#') && !href.startsWith('mailto:')) {
-        const currentPage = window.location.pathname.split('/').pop() || 'index.html';
-        const targetPage = href.split('/').pop();
-        
-        // Don't add transition if clicking on the same page
-        if (currentPage !== targetPage && !this.classList.contains('logout-btn')) {
-          e.preventDefault();
-          
-          // Add fade-out effect
-          document.body.style.transition = 'opacity 0.25s ease-out, transform 0.25s ease-out';
-          document.body.style.opacity = '0';
-          document.body.style.transform = 'translateY(-8px)';
-          
-          // Navigate after fade-out
-          setTimeout(() => {
-            window.location.href = href;
-          }, 250);
-        }
+  
+  // Close mobile menu on escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const navLinks = document.querySelector('.nav-links');
+      if (navLinks && navLinks.classList.contains('active')) {
+        toggleMobileMenu();
+      }
+    }
+  });
+  
+  // Close mobile menu when clicking on a link
+  const navLinksItems = document.querySelectorAll('.nav-links a:not(.logout-btn)');
+  navLinksItems.forEach(link => {
+    link.addEventListener('click', () => {
+      if (window.innerWidth <= 768) {
+        setTimeout(() => {
+          resetMenuToInitialState();
+        }, 150);
       }
     });
   });
+
+  // Add smooth page transitions to navigation links (disabled on mobile for performance)
+  const isMobile = window.innerWidth <= 768;
+  if (!isMobile) {
+    const navLinks = document.querySelectorAll('.nav-links a:not([href^="#"])');
+    navLinks.forEach(link => {
+      link.addEventListener('click', function(e) {
+        const href = this.getAttribute('href');
+        
+        // Only add transition if it's an internal link and not the same page
+        if (href && !href.startsWith('http') && !href.startsWith('#') && !href.startsWith('mailto:')) {
+          const currentPage = window.location.pathname.split('/').pop() || 'index.html';
+          const targetPage = href.split('/').pop();
+          
+          // Don't add transition if clicking on the same page
+          if (currentPage !== targetPage && !this.classList.contains('logout-btn')) {
+            e.preventDefault();
+            
+            // Add fade-out effect
+            document.body.style.transition = 'opacity 0.15s ease-out';
+            document.body.style.opacity = '0';
+            
+            // Navigate after fade-out (faster on mobile)
+            setTimeout(() => {
+              window.location.href = href;
+            }, 150);
+          }
+        }
+      });
+    });
+  }
   
+  // Ensure service images load and display properly
+  const serviceImages = document.querySelectorAll('.service-icon img');
+  serviceImages.forEach(img => {
+    // Force image to load and be visible
+    if (img.complete && img.naturalHeight !== 0) {
+      img.style.opacity = '1';
+      img.style.display = 'block';
+    } else {
+      img.addEventListener('load', function() {
+        this.style.opacity = '1';
+        this.style.display = 'block';
+      });
+      img.addEventListener('error', function() {
+        // If image fails, ensure placeholder is visible
+        this.style.opacity = '1';
+        this.style.display = 'block';
+        this.style.background = 'linear-gradient(135deg, rgba(14, 165, 233, 0.2) 0%, rgba(6, 182, 212, 0.2) 100%)';
+      });
+      // Trigger load if not already loading
+      if (!img.src || img.src === '') {
+        img.src = img.getAttribute('data-src') || img.src;
+      }
+    }
+  });
+
   // Handle logo clicks for smooth transitions (make logo clickable)
   const logoElements = document.querySelectorAll('.logo:not(a)');
   logoElements.forEach(logo => {

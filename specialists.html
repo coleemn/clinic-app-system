@@ -53,33 +53,46 @@
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       const doctors = [
-        { name: "Dr. Jane Mwangi", specialty: "Cardiologist", email: "jane.mwangi@clinic.com", icon: "❤️" },
-        { name: "Dr. Kevin Otieno", specialty: "Dermatologist", email: "kevin.otieno@clinic.com", icon: "🧴" },
-        { name: "Dr. Aisha Hassan", specialty: "Neurologist", email: "aisha.hassan@clinic.com", icon: "🧠" },
-        { name: "Dr. Brian Kamau", specialty: "Gynecologist", email: "brian.kamau@clinic.com", icon: "👩" },
-        { name: "Dr. Lydia Wanjiru", specialty: "Pediatrician", email: "lydia.wanjiru@clinic.com", icon: "👶" },
-        { name: "Dr. Peter Oloo", specialty: "General Practitioner", email: "peter.oloo@clinic.com", icon: "👨‍⚕️" }
+        { name: "Dr. Jane Mwangi", specialty: "Cardiologist", email: "jane.mwangi@clinic.com", icon: "❤️", gender: "female" },
+        { name: "Dr. Kevin Otieno", specialty: "Dermatologist", email: "kevin.otieno@clinic.com", icon: "🧴", gender: "male" },
+        { name: "Dr. Aisha Hassan", specialty: "Neurologist", email: "aisha.hassan@clinic.com", icon: "🧠", gender: "female" },
+        { name: "Dr. Brian Kamau", specialty: "Gynecologist", email: "brian.kamau@clinic.com", icon: "👩", gender: "male" },
+        { name: "Dr. Lydia Wanjiru", specialty: "Pediatrician", email: "lydia.wanjiru@clinic.com", icon: "👶", gender: "female" },
+        { name: "Dr. Peter Oloo", specialty: "General Practitioner", email: "peter.oloo@clinic.com", icon: "👨‍⚕️", gender: "male" }
       ];
 
       const root = document.getElementById("doctorList");
       if (!root) return;
 
-      const doctorImages = [
-        'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?auto=format&fit=crop&w=400&q=80',
-        'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=400&q=80',
-        'https://images.unsplash.com/photo-1582750433449-648ed127bb54?auto=format&fit=crop&w=400&q=80',
-        'https://images.unsplash.com/photo-1576091160399-112ba8d25d1f?auto=format&fit=crop&w=400&q=80',
-        'https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=400&q=80',
-        'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=400&q=80'
-      ];
+      // Function to generate gender-based doctor images
+      function getDoctorImage(gender, specialtyIndex) {
+        const colors = [
+          ['%230ea5e9', '%2306b6d4'], // Blue - Cardiologist
+          ['%2306b6d4', '%233b82f6'], // Cyan - Dermatologist
+          ['%233b82f6', '%238b5cf6'], // Purple - Neurologist
+          ['%23ec4899', '%23f472b6'], // Pink - Gynecologist
+          ['%23f59e0b', '%23fbbf24'], // Orange - Pediatrician
+          ['%2310b981', '%2334d399']  // Green - General Practitioner
+        ];
+        const [color1, color2] = colors[specialtyIndex % colors.length];
+        
+        if (gender === 'female') {
+          // Female doctor - with longer hair and feminine features
+          return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Cdefs%3E%3ClinearGradient id='doc${specialtyIndex}f' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='${color1}'/%3E%3Cstop offset='100%25' stop-color='${color2}'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='400' height='400' fill='url(%23doc${specialtyIndex}f)'/%3E%3Ccircle cx='200' cy='140' r='55' fill='white' opacity='0.95'/%3E%3Cpath d='M 200 110 L 200 170 M 170 140 L 230 140' stroke='${color1}' stroke-width='7' stroke-linecap='round'/%3E%3Cpath d='M 200 170 L 200 230 M 170 200 L 230 200' stroke='${color1}' stroke-width='5' stroke-linecap='round'/%3E%3Cpath d='M 145 100 Q 200 80, 255 100 Q 255 120, 200 120 Q 145 120, 145 100 Z' fill='white' opacity='0.9'/%3E%3Cpath d='M 150 280 Q 200 300, 250 280' stroke='white' stroke-width='6' stroke-linecap='round' fill='none'/%3E%3Cpath d='M 180 310 Q 200 330, 220 310' stroke='white' stroke-width='5' stroke-linecap='round' fill='none'/%3E%3Ccircle cx='180' cy='350' r='12' fill='white' opacity='0.8'/%3E%3Ccircle cx='220' cy='350' r='12' fill='white' opacity='0.8'/%3E%3C/svg%3E`;
+        } else {
+          // Male doctor - with shorter hair and broader shoulders
+          return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Cdefs%3E%3ClinearGradient id='doc${specialtyIndex}m' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='${color1}'/%3E%3Cstop offset='100%25' stop-color='${color2}'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='400' height='400' fill='url(%23doc${specialtyIndex}m)'/%3E%3Ccircle cx='200' cy='140' r='55' fill='white' opacity='0.95'/%3E%3Cpath d='M 200 110 L 200 170 M 170 140 L 230 140' stroke='${color1}' stroke-width='8' stroke-linecap='round'/%3E%3Cpath d='M 200 170 L 200 230 M 170 200 L 230 200' stroke='${color1}' stroke-width='6' stroke-linecap='round'/%3E%3Crect x='150' y='95' width='100' height='25' rx='12' fill='white' opacity='0.9'/%3E%3Cpath d='M 150 280 L 150 320 L 250 320 L 250 280' stroke='white' stroke-width='6' stroke-linecap='round' fill='none'/%3E%3Cpath d='M 180 340 Q 200 360, 220 340' stroke='white' stroke-width='5' stroke-linecap='round' fill='none'/%3E%3C/svg%3E`;
+        }
+      }
 
       doctors.forEach((doc, index) => {
         const card = document.createElement("div");
         card.className = "card slide-up doctor-card";
         card.style.animationDelay = `${index * 0.1}s`;
+        const doctorImage = getDoctorImage(doc.gender || 'male', index);
         card.innerHTML = `
           <div class="doctor-image">
-            <img src="${doctorImages[index % doctorImages.length]}" alt="${doc.name}" loading="lazy">
+            <img src="${doctorImage}" alt="${doc.name}" loading="lazy">
           </div>
           <div class="doctor-info">
             <div style="font-size: 2.5rem; margin-bottom: 0.5rem; text-align: center;">${doc.icon}</div>
