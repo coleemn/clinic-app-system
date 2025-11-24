@@ -831,8 +831,14 @@ function toggleTheme() {
 // ========== MOBILE MENU TOGGLE ==========
 function toggleMobileMenu() {
   const navLinks = document.querySelector('.nav-links');
+  const menuToggle = document.querySelector('.menu-toggle');
   if (navLinks) {
     navLinks.classList.toggle('active');
+    // Update toggle button state
+    if (menuToggle) {
+      menuToggle.classList.toggle('active');
+      menuToggle.setAttribute('aria-expanded', navLinks.classList.contains('active') ? 'true' : 'false');
+    }
   }
 }
 
@@ -861,8 +867,9 @@ window.addEventListener('DOMContentLoaded', () => {
   if (nav && !document.querySelector('.menu-toggle')) {
     const menuToggle = document.createElement('button');
     menuToggle.className = 'menu-toggle';
-    menuToggle.innerHTML = '☰';
+    menuToggle.innerHTML = ''; // Empty - using CSS for hamburger icon
     menuToggle.setAttribute('aria-label', 'Toggle menu');
+    menuToggle.setAttribute('aria-expanded', 'false');
     menuToggle.onclick = (e) => {
       e.stopPropagation();
       toggleMobileMenu();
