@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
   <title>Triage Dashboard | MediConnect</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='favGrad' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%230ea5e9'/%3E%3Cstop offset='100%25' stop-color='%2306b6d4'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100' height='100' rx='20' fill='url(%23favGrad)'/%3E%3Ccircle cx='50' cy='50' r='30' fill='white' opacity='0.9'/%3E%3Cpath d='M 50 35 L 50 65 M 35 50 L 65 50' stroke='%230ea5e9' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='favGrad' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%230ea5e9'/%3E%3Cstop offset='100%25' stop-color='%2306b6d4'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100' height='100' rx='20' fill='url(%23favGrad)'/%3E%3Ccircle cx='50' cy='50' r='30' fill='white' opacity='0.9'/%3E%3Cpath d='M 50 35 L 50 65 M 35 50 L 65 50' stroke='%230ea5e9' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -24,17 +26,87 @@
     </div>
   </header>
 
-  <section class="hero small">
-    <div class="container hero-content">
-      <h2>Triage Dashboard</h2>
-      <p>Review and manage pending appointment cases</p>
-    </div>
-  </section>
+  <main class="physician-dashboard-container fade-in">
+    <section class="physician-welcome-section">
+      <div class="physician-welcome-content">
+        <div class="physician-welcome-text">
+          <h2>👨‍⚕️ Physician Dashboard</h2>
+          <p>Welcome back, <span id="physicianName">Physician</span>. Review and manage patient triage cases efficiently.</p>
+        </div>
+        <div class="physician-welcome-image">
+          <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 500 400'%3E%3Cdefs%3E%3ClinearGradient id='physGrad' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%2310b981'/%3E%3Cstop offset='100%25' stop-color='%2306b6d4'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='500' height='400' fill='url(%23physGrad)'/%3E%3Ccircle cx='250' cy='150' r='70' fill='white' opacity='0.95'/%3E%3Cpath d='M 250 100 L 250 200 M 200 150 L 300 150' stroke='%2310b981' stroke-width='10' stroke-linecap='round'/%3E%3Crect x='150' y='250' width='200' height='80' rx='10' fill='white' opacity='0.9'/%3E%3Cpath d='M 170 280 L 330 280 M 170 300 L 330 300 M 170 320 L 280 320' stroke='%2310b981' stroke-width='4' stroke-linecap='round'/%3E%3Ccircle cx='100' cy='100' r='25' fill='white' opacity='0.4'/%3E%3Ccircle cx='400' cy='300' r='30' fill='white' opacity='0.3'/%3E%3C/svg%3E" alt="Physician Dashboard" loading="eager">
+        </div>
+      </div>
+    </section>
 
-  <section class="dashboard container">
-    <h2>Pending Triage Cases</h2>
-    <div id="queue" class="card-grid"></div>
-  </section>
+    <section class="physician-stats-section">
+      <div class="container">
+        <div class="physician-stats-grid">
+          <div class="physician-stat-card">
+            <div class="stat-icon-wrapper">
+              <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='40' fill='%23ef4444' opacity='0.2'/%3E%3Cpath d='M 50 30 L 50 70 M 30 50 L 70 50' stroke='%23ef4444' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E" alt="Pending" loading="eager">
+            </div>
+            <h3 id="pendingCount">0</h3>
+            <p>Pending Cases</p>
+          </div>
+          <div class="physician-stat-card">
+            <div class="stat-icon-wrapper">
+              <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='40' fill='%2310b981' opacity='0.2'/%3E%3Cpath d='M 30 50 L 45 65 L 70 40' stroke='%2310b981' stroke-width='6' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E" alt="Completed" loading="eager">
+            </div>
+            <h3 id="completedCount">0</h3>
+            <p>Completed Today</p>
+          </div>
+          <div class="physician-stat-card">
+            <div class="stat-icon-wrapper">
+              <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='40' fill='%23f59e0b' opacity='0.2'/%3E%3Ccircle cx='50' cy='50' r='20' fill='none' stroke='%23f59e0b' stroke-width='4'/%3E%3Cpath d='M 50 30 L 50 50 L 65 50' stroke='%23f59e0b' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E" alt="In Progress" loading="eager">
+            </div>
+            <h3 id="inProgressCount">0</h3>
+            <p>In Progress</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="triage-cases-section container">
+      <div class="section-header">
+        <h2>📋 Patient Appointments</h2>
+        <p>View and manage all patient appointments</p>
+      </div>
+      
+      <div class="physician-filters">
+        <div class="filter-group">
+          <label for="doctorFilter">Filter by Doctor:</label>
+          <select id="doctorFilter" class="filter-select">
+            <option value="all">All Doctors</option>
+            <option value="Dr. Jane Mwangi">Dr. Jane Mwangi - Cardiologist</option>
+            <option value="Dr. Kevin Otieno">Dr. Kevin Otieno - Dermatologist</option>
+            <option value="Dr. Aisha Hassan">Dr. Aisha Hassan - Neurologist</option>
+            <option value="Dr. Brian Kamau">Dr. Brian Kamau - Gynecologist</option>
+            <option value="Dr. Lydia Wanjiru">Dr. Lydia Wanjiru - Pediatrician</option>
+            <option value="Dr. Peter Oloo">Dr. Peter Oloo - General Practitioner</option>
+            <option value="Dr. John Mwangi">Dr. John Mwangi - Cardiologist</option>
+            <option value="Dr. Sarah Achieng">Dr. Sarah Achieng - Dermatologist</option>
+            <option value="Dr. Mark Otieno">Dr. Mark Otieno - Pediatrician</option>
+            <option value="Dr. Lucy Wanjiku">Dr. Lucy Wanjiku - Gynecologist</option>
+            <option value="Dr. Peter Kimani">Dr. Peter Kimani - General Physician</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label for="statusFilter">Filter by Status:</label>
+          <select id="statusFilter" class="filter-select">
+            <option value="all">All Status</option>
+            <option value="Pending">Pending</option>
+            <option value="Scheduled">Scheduled</option>
+            <option value="Completed">Completed</option>
+            <option value="Cancelled">Cancelled</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" onclick="loadPhysicianAppointments()">🔄 Refresh</button>
+      </div>
+      
+      <div id="queue" class="triage-cards-grid"></div>
+    </section>
+  </main>
 
   <footer>
     <div class="container">
@@ -64,16 +136,45 @@
         return;
       }
       
-      // Load triage queue
-      if (typeof loadTriageQueue === 'function') {
+      // Set physician name if available
+      const physicianNameEl = document.getElementById('physicianName');
+      const name = localStorage.getItem('name');
+      if (physicianNameEl && name) {
+        physicianNameEl.textContent = name;
+      }
+      
+      // Load physician appointments
+      if (typeof loadPhysicianAppointments === 'function') {
+        await loadPhysicianAppointments();
+      } else if (typeof loadTriageQueue === 'function') {
         await loadTriageQueue();
       } else {
         setTimeout(async () => {
-          if (typeof loadTriageQueue === 'function') {
+          if (typeof loadPhysicianAppointments === 'function') {
+            await loadPhysicianAppointments();
+          } else if (typeof loadTriageQueue === 'function') {
             await loadTriageQueue();
           }
         }, 500);
       }
+      
+      // Add filter change listeners
+      const doctorFilter = document.getElementById('doctorFilter');
+      const statusFilter = document.getElementById('statusFilter');
+      
+      if (doctorFilter) {
+        doctorFilter.addEventListener('change', loadPhysicianAppointments);
+      }
+      if (statusFilter) {
+        statusFilter.addEventListener('change', loadPhysicianAppointments);
+      }
+      
+      // Auto-refresh every 30 seconds to show new appointments
+      setInterval(() => {
+        if (typeof loadPhysicianAppointments === 'function') {
+          loadPhysicianAppointments();
+        }
+      }, 30000);
     });
   </script>
 </body>

@@ -98,10 +98,15 @@
             const session = JSON.parse(sessionStr);
             const { error } = await supabase.auth.setSession(session);
             if (!error) {
-              // Already logged in, redirect to dashboard
-              // Add small delay to ensure session is set
+              // Check user role and redirect accordingly
+              const userRole = localStorage.getItem('role') || 'patient';
               await new Promise(resolve => setTimeout(resolve, 100));
-              location.href = 'dashboard.html';
+              
+              if (userRole === 'physician') {
+                location.href = 'triage.html';
+              } else {
+                location.href = 'dashboard.html';
+              }
             } else {
               // Session invalid, stay on register page
               console.warn('Session invalid, staying on register page');

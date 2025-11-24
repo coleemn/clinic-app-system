@@ -177,10 +177,22 @@ document.getElementById('loginForm')?.addEventListener('submit', async e => {
         }
       }
       
-      localStorage.setItem('role', userData.role || 'patient');
+      // Get and store user role first
+      const userRole = userData.role || authData.user.user_metadata?.role || 'patient';
+      localStorage.setItem('role', userRole);
       localStorage.setItem('name', userData.name || authData.user.email);
       localStorage.setItem('email', authData.user.email);
       localStorage.setItem('user_id', authData.user.id);
+      
+      // Verify role was saved (with retry for mobile)
+      let roleCheck = localStorage.getItem('role');
+      let roleRetries = 0;
+      while (!roleCheck && roleRetries < 5) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        localStorage.setItem('role', userRole);
+        roleCheck = localStorage.getItem('role');
+        roleRetries++;
+      }
       
       // Verify email was saved (with retry)
       let emailCheck = localStorage.getItem('email');
@@ -196,7 +208,8 @@ document.getElementById('loginForm')?.addEventListener('submit', async e => {
         throw new Error('Failed to save user data. Please try again.');
       }
       
-      showMessage(messageEl, 'Login successful! Redirecting to dashboard...', 'success');
+      const roleMessage = userRole === 'physician' ? 'Redirecting to physician dashboard...' : 'Redirecting to patient dashboard...';
+      showMessage(messageEl, `Login successful! ${roleMessage}`, 'success');
       
       // Ensure localStorage is committed before redirect (important for mobile)
       await new Promise(resolve => setTimeout(resolve, 400));
@@ -204,8 +217,12 @@ document.getElementById('loginForm')?.addEventListener('submit', async e => {
       // Verify token exists before redirecting
       const finalTokenCheck = localStorage.getItem('token');
       if (finalTokenCheck) {
-        // Always redirect to dashboard after login
-        location.href = 'dashboard.html';
+        // Redirect based on user role
+        if (userRole === 'physician') {
+          location.href = 'triage.html';
+        } else {
+          location.href = 'dashboard.html';
+        }
       } else {
         throw new Error('Session not saved. Please try logging in again.');
       }
@@ -650,8 +667,8 @@ async function getCurrentUserEmail() {
   return null;
 }
 
-/* ========== TRIAGE QUEUE ========== */
-async function loadTriageQueue() {
+/* ========== PHYSICIAN DASHBOARD - LOAD ALL APPOINTMENTS ========== */
+async function loadPhysicianAppointments() {
   const token = localStorage.getItem('token');
   if (!token || !supabase) {
     if (!token) location.href = 'login.html';
@@ -661,53 +678,272 @@ async function loadTriageQueue() {
   const root = document.getElementById('queue');
   if (!root) return;
 
+  // Get filter values
+  const doctorFilter = document.getElementById('doctorFilter')?.value || 'all';
+  const statusFilter = document.getElementById('statusFilter')?.value || 'all';
+
   try {
+    // Wait for Supabase to be initialized
+    if (!supabase) {
+      let retries = 0;
+      while (!supabase && retries < 10) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        if (!supabase) {
+          initSupabase();
+        }
+        retries++;
+      }
+    }
+    
+    if (!supabase) {
+      throw new Error('Supabase client not initialized. Please refresh the page.');
+    }
+    
     // Set auth session for Supabase client if available
+    const sessionStr = localStorage.getItem('session');
+    if (token && sessionStr) {
+      try {
+        const session = JSON.parse(sessionStr);
+        const { error: sessionError } = await supabase.auth.setSession(session);
+        if (sessionError) {
+          console.warn('Session error:', sessionError);
+        }
+      } catch (e) {
+        console.warn('Could not restore session:', e);
+      }
+    }
+    
+    // Build query based on filters
+    let query = supabase
+      .from('appointments')
+      .select('*');
+    
+    // Apply doctor filter
+    if (doctorFilter !== 'all') {
+      query = query.eq('doctor_name', doctorFilter);
+    }
+    
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      query = query.eq('status', statusFilter);
+    }
+    
+    // Order by created date (newest first) or appointment date
+    query = query.order('created_at', { ascending: false });
+    
+    // Execute query with retry logic
+    let data, error;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const result = await query;
+        data = result.data;
+        error = result.error;
+        
+        if (!error) {
+          break;
+        }
+        
+        if (error && attempt < 2) {
+          console.warn(`Query error (attempt ${attempt + 1}), retrying...`, error);
+          await new Promise(resolve => setTimeout(resolve, 300));
+          // Refresh session before retry
+          if (sessionStr) {
+            try {
+              const session = JSON.parse(sessionStr);
+              await supabase.auth.setSession(session);
+            } catch (e) {
+              console.warn('Could not refresh session:', e);
+            }
+          }
+          // Rebuild query for retry
+          query = supabase.from('appointments').select('*');
+          if (doctorFilter !== 'all') {
+            query = query.eq('doctor_name', doctorFilter);
+          }
+          if (statusFilter !== 'all') {
+            query = query.eq('status', statusFilter);
+          }
+          query = query.order('created_at', { ascending: false });
+        }
+      } catch (queryError) {
+        console.error('Query execution error:', queryError);
+        error = queryError;
+        if (attempt < 2) {
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+      }
+    }
+    
+    if (error) {
+      console.error('Supabase query error:', error);
+      // Try a simpler query as fallback
+      try {
+        const fallbackResult = await supabase
+          .from('appointments')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(50);
+        
+        if (!fallbackResult.error && fallbackResult.data) {
+          data = fallbackResult.data;
+          error = null;
+          console.log('Used fallback query successfully');
+        } else {
+          throw new Error(error.message || 'Failed to load appointments from database');
+        }
+      } catch (fallbackError) {
+        throw new Error(error.message || 'Failed to load appointments. Please check your connection and try again.');
+      }
+    }
+    
+    root.innerHTML = '';
+    
+    if (!data || data.length === 0) {
+      root.innerHTML = '<p style="text-align: center; color: var(--text-color); opacity: 0.7; grid-column: 1 / -1; padding: 3rem;">No appointments found with the selected filters.</p>';
+      updateStatistics([]);
+      return;
+    }
+
+    // Update statistics
+    updateStatistics(data);
+    
+    // Display appointments
+    data.forEach((a, index) => {
+      const div = document.createElement('div');
+      div.className = 'triage-card slide-up physician-appointment-card';
+      div.style.animationDelay = `${index * 0.1}s`;
+      
+      const statusColors = {
+        'Pending': '#f59e0b',
+        'Scheduled': '#3b82f6',
+        'Completed': '#10b981',
+        'Cancelled': '#ef4444'
+      };
+      
+      const statusColor = statusColors[a.status] || '#6b7280';
+      div.style.borderLeftColor = statusColor;
+      
+      const appointmentDate = a.appointment_date ? new Date(a.appointment_date).toLocaleString() : 'Not scheduled';
+      const createdDate = a.created_at ? new Date(a.created_at).toLocaleString() : 'N/A';
+      
+      div.innerHTML = `
+        <div class="appointment-card-header">
+          <div>
+            <h3>👤 ${a.patient_name || 'Unknown Patient'}</h3>
+            <p class="appointment-doctor"><strong>👨‍⚕️ Doctor:</strong> ${a.doctor_name || 'Not Assigned'}</p>
+          </div>
+          <span class="status-badge-physician" style="background: ${statusColor}; color: white; padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.875rem; font-weight: 600;">${a.status || 'Pending'}</span>
+        </div>
+        <div class="appointment-details-grid">
+          <div class="detail-item">
+            <strong>📧 Email:</strong>
+            <span>${a.patient_email || 'N/A'}</span>
+          </div>
+          <div class="detail-item">
+            <strong>📞 Phone:</strong>
+            <span>${a.phone || 'N/A'}</span>
+          </div>
+          <div class="detail-item">
+            <strong>📅 Appointment Date:</strong>
+            <span>${appointmentDate}</span>
+          </div>
+          <div class="detail-item">
+            <strong>🩺 Specialty:</strong>
+            <span>${a.specialty || 'Not specified'}</span>
+          </div>
+          <div class="detail-item">
+            <strong>📝 Reason:</strong>
+            <span>${a.reason || 'No reason provided'}</span>
+          </div>
+          <div class="detail-item">
+            <strong>🕐 Created:</strong>
+            <span>${createdDate}</span>
+          </div>
+        </div>
+        ${a.symptoms ? `<div class="symptoms-box"><strong>🩺 Symptoms:</strong><p>${a.symptoms}</p></div>` : ''}
+        ${a.notes ? `<div class="notes-box"><strong>📋 Notes:</strong><p>${a.notes}</p></div>` : ''}
+        <div class="appointment-actions">
+          ${a.status === 'Pending' ? `<button class="btn btn-primary" onclick="triage('${a.id}')">🩺 Assign & Schedule</button>` : ''}
+          ${a.status === 'Scheduled' ? `<button class="btn btn-success" onclick="updateAppointmentStatus('${a.id}', 'Completed')">✅ Mark Complete</button>` : ''}
+          <button class="btn btn-secondary" onclick="viewPatientDetails('${a.id}')">👁️ View Details</button>
+        </div>
+      `;
+      root.appendChild(div);
+    });
+  } catch (error) {
+    console.error('Error loading physician appointments:', error);
+    const errorMessage = error.message || 'Unknown error occurred';
+    root.innerHTML = `
+      <div style="text-align: center; padding: 3rem; grid-column: 1 / -1;">
+        <p style="color: #ef4444; margin-bottom: 1rem; font-weight: 600;">⚠️ Error loading appointments</p>
+        <p style="color: var(--text-color); opacity: 0.7; margin-bottom: 1.5rem;">${errorMessage}</p>
+        <button class="btn btn-primary" onclick="loadPhysicianAppointments()">🔄 Retry</button>
+      </div>
+    `;
+    // Update statistics to zero on error
+    updateStatistics([]);
+  }
+}
+
+// Update statistics counters
+function updateStatistics(data) {
+  const pending = data.filter(a => a.status === 'Pending').length;
+  const completed = data.filter(a => a.status === 'Completed').length;
+  const inProgress = data.filter(a => a.status === 'Scheduled').length;
+  
+  const pendingEl = document.getElementById('pendingCount');
+  const completedEl = document.getElementById('completedCount');
+  const inProgressEl = document.getElementById('inProgressCount');
+  
+  if (pendingEl) pendingEl.textContent = pending;
+  if (completedEl) completedEl.textContent = completed;
+  if (inProgressEl) inProgressEl.textContent = inProgress;
+}
+
+// Update appointment status
+async function updateAppointmentStatus(id, newStatus) {
+  const token = localStorage.getItem('token');
+  if (!token || !supabase) {
+    alert('Not authenticated. Please login again.');
+    return;
+  }
+
+  try {
     const sessionStr = localStorage.getItem('session');
     if (token && sessionStr) {
       try {
         const session = JSON.parse(sessionStr);
         await supabase.auth.setSession(session);
       } catch (e) {
-        console.warn('Could not restore session, using token only');
+        console.warn('Could not restore session');
       }
     }
     
-    // Query pending appointments directly from Supabase
-    // Get appointments with status 'Pending' or without doctor_name
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('appointments')
-      .select('*')
-      .eq('status', 'Pending')
-      .order('appointment_date', { ascending: true });
+      .update({ status: newStatus })
+      .eq('id', id);
     
     if (error) throw error;
     
-    root.innerHTML = '';
-    
-    if (!data || data.length === 0) {
-      root.innerHTML = '<p style="text-align: center; color: var(--text-color); opacity: 0.7; grid-column: 1 / -1;">No pending triage cases.</p>';
-      return;
-    }
-    
-    data.forEach((a, index) => {
-      const div = document.createElement('div');
-      div.className = 'card slide-up';
-      div.style.animationDelay = `${index * 0.1}s`;
-      div.innerHTML = `
-        <h3>${a.patient_name || 'Unknown Patient'}</h3>
-        <p><strong>Email:</strong> ${a.patient_email || 'N/A'}</p>
-        <p><strong>Reason:</strong> ${a.reason || 'No reason provided'}</p>
-        <p><strong>Phone:</strong> ${a.phone || 'N/A'}</p>
-        <p><strong>Date:</strong> ${a.created_at ? new Date(a.created_at).toLocaleDateString() : (a.appointment_date ? new Date(a.appointment_date).toLocaleDateString() : 'N/A')}</p>
-        <button class="btn btn-primary" onclick="triage('${a.id}')">Assign Doctor</button>
-      `;
-      root.appendChild(div);
-    });
+    alert(`Appointment marked as ${newStatus}!`);
+    loadPhysicianAppointments();
   } catch (error) {
-    console.error('Error loading triage queue:', error);
-    root.innerHTML = '<p style="text-align: center; color: var(--text-color); opacity: 0.7; grid-column: 1 / -1;">Error loading triage queue. Please try again later.</p>';
+    console.error('Error updating appointment:', error);
+    alert('Error updating appointment: ' + (error.message || 'Unknown error'));
   }
+}
+
+// View patient details
+function viewPatientDetails(id) {
+  // This could open a modal or navigate to a details page
+  alert('Patient details view - Feature coming soon!');
+}
+
+/* ========== TRIAGE QUEUE (Legacy - for backward compatibility) ========== */
+async function loadTriageQueue() {
+  // Redirect to new function
+  await loadPhysicianAppointments();
 }
 
 async function triage(id) {
